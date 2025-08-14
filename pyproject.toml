@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "filedgr-pkg-utils"
+version = "0.1.0"
+requires-python = ">=3.10"
+description = "A library of python based utils needed in the filedgr code stack"
+readme = "README.md"
+authors = [{ name = "Filedgr", email = "code@filedgr.com" }]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["filedgr", "xrpl", "cli"]
+dependencies = [
+    "pydantic>=1.10.2",
+    "rich>=12.6.0",
+    "typer>=0.7.0",
+    "orjson>=3.8.1",
+    "xrpl-py>=1.7.0",
+    "filedgr-nft-protobuf>=1.0.0",
+    "pyyaml>=6.0"]
+
+[project.optional-dependencies]
+build = ["build", "twine"]
+dev = ["black", "bumpver", "isort", "mypy", "pytest", "flake8"]
+
+[project.urls]
+repository = "https://github.com/Filedgr/filedgr-pkg-utils"
+
+[project.scripts]
+xrpl = "filedgr_pkg_utils.__main__:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests*"]
+
+[tool.bumpver]
+current_version = "0.1.0"
+version_pattern = "MAJOR.MINOR.PATCH[-PYTAGNUM]"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = false
+tag = false
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'version = "{version}"',
+]
+"src/filedgr_pkg_awsutils/__init__.py" = ["{version}"]
+
+[tool.isort]
+profile = "black"
+import_heading_stdlib = "Standard library imports"
+import_heading_thirdparty = "Third party imports"
+import_heading_firstparty = "Reader imports"
+
+[tool.pytest.ini_options]
+pythonpath = [
+    ".", "src"

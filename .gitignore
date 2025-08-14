@@ -1,0 +1,14 @@
+.idea
+.python-version
+**/.DS_Store
+
+*.egg-info
+dist
+
+.coverage
+.pytest_cache
+.mypy_cache
+
+**/*.pyc
+**/__pycache__/
+
