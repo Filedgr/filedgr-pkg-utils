@@ -59,5 +59,4 @@ import_heading_thirdparty = "Third party imports"
 import_heading_firstparty = "Reader imports"
 
 [tool.pytest.ini_options]
-pythonpath = [
-    ".", "src"
+pythonpath = [".", "src"]
