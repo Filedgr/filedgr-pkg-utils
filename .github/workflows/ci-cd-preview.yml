@@ -20,7 +20,7 @@ jobs:
       - name: Test with Coverage
         run: |
           pip install -r requirements-test.txt
-          pytest tests --cov=src/{{cookiecutter.package_name}} --cov-fail-under=30 --cov-report term-missing
+          pytest tests --cov=src/filedgr_pkg_utils --cov-fail-under=30 --cov-report term-missing
   cd:
     needs: ci
     name: Continuous Deployment
