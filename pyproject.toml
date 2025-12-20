@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filedgr-pkg-utils"
-version = "0.1.0"
-requires-python = ">=3.10"
+version = "0.2.0"
+requires-python = ">=3.11"
 description = "A library of python based utils needed in the filedgr code stack"
 readme = "README.md"
 authors = [{ name = "Filedgr", email = "code@filedgr.com" }]
@@ -14,15 +14,10 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
-keywords = ["filedgr", "xrpl", "cli"]
+keywords = ["filedgr", "pkg", "utils"]
 dependencies = [
-    "pydantic>=1.10.2",
-    "rich>=12.6.0",
-    "typer>=0.7.0",
-    "orjson>=3.8.1",
-    "xrpl-py>=1.7.0",
-    "filedgr-nft-protobuf>=1.0.0",
-    "pyyaml>=6.0"]
+    "pydantic>=2.12.5, <3.0.0",
+    "ecdsa>=0.19.1, <1.0.0"]
 
 [project.optional-dependencies]
 build = ["build", "twine"]
@@ -31,15 +26,12 @@ dev = ["black", "bumpver", "isort", "mypy", "pytest", "flake8"]
 [project.urls]
 repository = "https://github.com/Filedgr/filedgr-pkg-utils"
 
-[project.scripts]
-xrpl = "filedgr_pkg_utils.__main__:app"
-
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["tests*"]
 
 [tool.bumpver]
-current_version = "0.1.0"
+current_version = "0.2.0"
 version_pattern = "MAJOR.MINOR.PATCH[-PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = false
@@ -50,7 +42,7 @@ push = false
 "pyproject.toml" = [
     'version = "{version}"',
 ]
-"src/filedgr_pkg_awsutils/__init__.py" = ["{version}"]
+"src/filedgr_pkg_utils/__init__.py" = ["{version}"]
 
 [tool.isort]
 profile = "black"
