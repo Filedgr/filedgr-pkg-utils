@@ -24,6 +24,10 @@ test-coverage: ## Runs the coverage tests for the python package
 
 
 ########## UTILITIES ##########
+lint:
+	@pip install flake8
+	flake8 src
+
 clean: ## Cleans the workspace
 	rm -rf .mypy_cache
 	rm -rf .pytest_cache
@@ -31,7 +35,10 @@ clean: ## Cleans the workspace
 	rm -f .coverage
 	rm -rf */*.egg-info
 
-help:
-	@printf "\nusage : make <commands> \n\nthe following commands are available : \n\n"
-	@cat Makefile | awk '1;/help:/{exit}' | awk '/##/ { print; getline; }'
-	@printf "\n"
+help: ## Show the help
+	@echo ""
+	@echo "usage: make <target>"
+	@echo ""
+	@echo "targets:"
+	@awk 'BEGIN {FS=":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo ""
