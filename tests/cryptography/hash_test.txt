@@ -1,0 +1,4 @@
+Requirement already satisfied: flake8 in /Users/ericfalk/.pyenv/versions/3.11.9/envs/filedgr-pkg-utils/lib/python3.11/site-packages (7.3.0)
+Requirement already satisfied: mccabe<0.8.0,>=0.7.0 in /Users/ericfalk/.pyenv/versions/3.11.9/envs/filedgr-pkg-utils/lib/python3.11/site-packages (from flake8) (0.7.0)
+Requirement already satisfied: pycodestyle<2.15.0,>=2.14.0 in /Users/ericfalk/.pyenv/versions/3.11.9/envs/filedgr-pkg-utils/lib/python3.11/site-packages (from flake8) (2.14.0)
+Requirement already satisfied: pyflakes<3.5.0,>=3.4.0 in /Users/ericfalk/.pyenv/versions/3.11.9/envs/filedgr-pkg-utils/lib/python3.11/site-packages (from flake8) (3.4.0)

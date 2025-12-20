@@ -1,18 +1,31 @@
-import abc
+from filedgr_pkg_utils.cryptography.signing.signature_algorithm import SignatureAlgorithm
 
 
-class SignatureUtils(abc.ABC):
+class SignatureUtils:
 
-    @abc.abstractmethod
-    def factory(self):
-        pass
+    def __init__(self, algo: SignatureAlgorithm):
+        self.algo = algo
 
-    def sign_message(self, message_hash: str, sign_key_hex: str) -> str:
-        util = self.factory()
-        result = util.sign(message_hash=message_hash, sign_key_hex=sign_key_hex)
-        return result
+    def sign(self, digest: str) -> str:
+        """
+        :param digest: The hash as a hex string
+        :return: The signature as a hex string
+        """
+        if digest.startswith("0x"):
+            digest = digest[2:]
+        digest = bytes.fromhex(digest)
+        return f"0x{self.algo.sign(digest).hex()}"
 
-    def verify_signature(self, message_hash: str, signature: str, verifyKey_hex: str) -> bool:
-        util = self.factory()
-        result = util.verify_signature(message_hash=message_hash, signature=signature, verifyKey_hex=verifyKey_hex)
-        return result
+    def verify(self, digest: str, signature: str) -> bool:
+        """
+        :param digest: The hash as a hex string
+        :param signature: The signature as a hex string
+        :return: True/False
+        """
+        if signature.startswith("0x"):
+            signature = signature[2:]
+        signature = bytes.fromhex(signature)
+        if digest.startswith("0x"):
+            digest = digest[2:]
+        digest = bytes.fromhex(digest)
+        return self.algo.verify(digest, signature)
