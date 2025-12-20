@@ -1,6 +1,7 @@
 from filedgr_pkg_utils.cryptography.signing.signature_utils import SignatureUtils
 from ecdsa import SigningKey, VerifyingKey, SECP256k1, BadSignatureError
 
+
 class _SEPC256k1Signature:
 
     def sign_message(self, message_hash: str, sign_key_hex: str) -> str:
@@ -16,6 +17,7 @@ class _SEPC256k1Signature:
             return True
         except BadSignatureError:
             return False
+
 
 class SECP256k1SignatureUtils(SignatureUtils):
 
