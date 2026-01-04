@@ -9,12 +9,12 @@ class Secp256k1EvmAlgorithm:
         if sign_key_hex:
             self.__priv = sign_key_hex if sign_key_hex.startswith("0x") else "0x" + sign_key_hex
 
-    def sign(self, digest: str) -> str:
-        digest = bytes.fromhex(digest[2:] if digest.startswith("0x") else digest)
+    def sign(self, digest: bytes) -> bytes:
+        # digest = bytes.fromhex(digest[2:] if digest.startswith("0x") else digest)
         if len(digest) != 32:
             raise ValueError("digest must be 32 bytes")
         signed = Account.unsafe_sign_hash(digest, private_key=self.__priv)
-        return signed.signature.hex()
+        return signed.signature
 
     def verify(self, digest: bytes, signature: bytes) -> bool:
         raise NotImplementedError()
