@@ -1,4 +1,3 @@
-from ecdsa import SigningKey, SECP256k1, VerifyingKey, BadSignatureError
 from eth_account import Account
 
 
@@ -9,8 +8,6 @@ class Secp256k1EvmAlgorithm:
                  verify_key_hex: str = None):
         if sign_key_hex:
             self.__priv = sign_key_hex if sign_key_hex.startswith("0x") else "0x" + sign_key_hex
-        if verify_key_hex:
-            self.__pub = VerifyingKey.from_string(bytes.fromhex(verify_key_hex), curve=SECP256k1)
 
     def sign(self, digest: str) -> str:
         digest = bytes.fromhex(digest[2:] if digest.startswith("0x") else digest)
