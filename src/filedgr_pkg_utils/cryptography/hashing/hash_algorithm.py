@@ -60,6 +60,7 @@ class Blake2bAlgorithm:
                 h.update(chunk)
         return h.digest()
 
+
 class Keccak256Algorithm:
     """
     Keccak-256 (Ethereum standard) via eth-hash.
