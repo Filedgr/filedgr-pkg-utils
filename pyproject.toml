@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filedgr-pkg-utils"
-version = "0.3.4"
+version = "0.3.5"
 requires-python = ">=3.11"
 description = "A library of python based utils needed in the filedgr code stack"
 readme = "README.md"
@@ -32,7 +32,7 @@ where = ["src"]
 exclude = ["tests*"]
 
 [tool.bumpver]
-current_version = "0.3.4"
+current_version = "0.3.5"
 version_pattern = "MAJOR.MINOR.PATCH[-PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = false

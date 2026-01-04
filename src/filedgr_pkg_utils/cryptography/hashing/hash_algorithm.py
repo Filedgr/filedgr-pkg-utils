@@ -1,6 +1,8 @@
 from typing import Protocol
 import hashlib
 
+from eth_hash.auto import keccak
+
 
 class HashAlgorithm(Protocol):
     """Pure hashing contract: bytes in, digest bytes out."""
@@ -57,3 +59,15 @@ class Blake2bAlgorithm:
             for chunk in iter(lambda: f.read(chunk_size), b""):
                 h.update(chunk)
         return h.digest()
+
+class Keccak256Algorithm:
+    """
+    Keccak-256 (Ethereum standard) via eth-hash.
+    """
+    name = "keccak256"
+
+    def hash_bytes(self, data: bytes) -> bytes:
+        return keccak(data)
+
+    def hash_file(self, path: str, chunk_size: int = 1024 * 1024) -> bytes:
+        raise NotImplementedError("keccak of the web3 libraries does not expose a streaming API")
