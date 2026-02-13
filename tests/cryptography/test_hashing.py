@@ -27,12 +27,12 @@ def test_hashing_file():
     assert hash[2:] == known_result
 
 def test_hash_stream():
-    algo = Sha256Algorithm()
+    hash_utils = HashUtils(algorithm=Sha256Algorithm())
 
     data = b"hello world" * 1000  # Making it large enough to cross chunk boundaries
     stream = BytesIO(data)
 
-    stream_hash = algo.hash_stream(stream, chunk_size=128)
-    direct_hash = algo.hash_bytes(data)
+    stream_hash = hash_utils.hash_stream(stream=stream, chunk_size=128)
+    direct_hash = hash_utils.hash_message(message=data)
 
     assert stream_hash == direct_hash
