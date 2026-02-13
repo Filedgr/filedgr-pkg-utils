@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Protocol, BinaryIO
 import hashlib
 
 from eth_hash.auto import keccak
@@ -12,6 +12,9 @@ class HashAlgorithm(Protocol):
         ...
 
     def hash_file(self, path: str, chunk_size: int = 1024 * 1024) -> bytes:
+        ...
+
+    def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
         ...
 
 
@@ -28,6 +31,12 @@ class Sha256Algorithm:
                 h.update(chunk)
         return h.digest()
 
+    def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
+        h = hashlib.sha256()
+        while chunk := stream.read(chunk_size):
+            h.update(chunk)
+        return h.digest()
+
 
 class Sha512Algorithm:
     name = "sha512"
@@ -40,6 +49,12 @@ class Sha512Algorithm:
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(chunk_size), b""):
                 h.update(chunk)
+        return h.digest()
+
+    def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
+        h = hashlib.sha512()
+        while chunk := stream.read(chunk_size):
+            h.update(chunk)
         return h.digest()
 
 
@@ -60,6 +75,12 @@ class Blake2bAlgorithm:
                 h.update(chunk)
         return h.digest()
 
+    def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
+        h = hashlib.blake2b(digest_size=self.digest_size)
+        while chunk := stream.read(chunk_size):
+            h.update(chunk)
+        return h.digest()
+
 
 class Keccak256Algorithm:
     """
@@ -72,3 +93,10 @@ class Keccak256Algorithm:
 
     def hash_file(self, path: str, chunk_size: int = 1024 * 1024) -> bytes:
         raise NotImplementedError("keccak of the web3 libraries does not expose a streaming API")
+
+    def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
+        h = hashlib.sha256()
+        while chunk := stream.read(chunk_size):
+            h.update(chunk)
+        return h.digest()
+
