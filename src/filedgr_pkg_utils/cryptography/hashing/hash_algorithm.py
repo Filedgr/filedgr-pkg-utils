@@ -99,4 +99,3 @@ class Keccak256Algorithm:
         while chunk := stream.read(chunk_size):
             h.update(chunk)
         return h.digest()
-
