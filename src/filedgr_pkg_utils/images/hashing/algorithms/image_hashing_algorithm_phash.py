@@ -5,6 +5,7 @@ try:
 except ImportError:
     _HAS_IMAGE_DEPS = False
 
+
 def _require_image_deps():
     if not _HAS_IMAGE_DEPS:
         raise ImportError(

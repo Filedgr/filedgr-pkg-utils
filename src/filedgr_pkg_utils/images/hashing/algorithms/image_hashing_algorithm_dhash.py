@@ -5,6 +5,7 @@ try:
 except ImportError:
     _HAS_IMAGE_DEPS = False
 
+
 def _require_image_deps():
     if not _HAS_IMAGE_DEPS:
         raise ImportError(
@@ -12,6 +13,7 @@ def _require_image_deps():
             "To use this feature, install the package with the 'images' extra: "
             "pip install 'filedgr-pkg-utils[images]'"
         )
+
 
 class DHashAlgorithm:
     """
