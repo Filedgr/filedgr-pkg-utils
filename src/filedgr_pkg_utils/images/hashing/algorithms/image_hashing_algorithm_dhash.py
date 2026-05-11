@@ -1,6 +1,7 @@
 import imagehash
 from PIL import Image
 
+
 class DHashAlgorithm:
     """
     Difference Hash (dHash) - Tracks gradients.
