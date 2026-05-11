@@ -1,4 +1,9 @@
 import pytest
+
+# Skip this entire test module if the image dependencies are missing
+pytest.importorskip("PIL")
+pytest.importorskip("imagehash")
+
 from pathlib import Path
 from PIL import Image, ImageDraw
 

@@ -2,6 +2,7 @@ import os
 from filedgr_pkg_utils.images.hashing.image_hash_algorithm import ImageHashAlgorithm
 
 
+
 class ImageHashUtils:
     def __init__(self, algorithm: ImageHashAlgorithm):
         self.algorithm = algorithm
