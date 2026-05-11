@@ -1,5 +1,18 @@
-import imagehash
-from PIL import Image
+try:
+    from PIL import Image
+    import imagehash
+    _HAS_IMAGE_DEPS = True
+except ImportError:
+    _HAS_IMAGE_DEPS = False
+
+
+def _require_image_deps():
+    if not _HAS_IMAGE_DEPS:
+        raise ImportError(
+            "Image hashing dependencies are missing. "
+            "To use this feature, install the package with the 'images' extra: "
+            "pip install 'filedgr-pkg-utils[images]'"
+        )
 
 
 class PHashAlgorithm:
