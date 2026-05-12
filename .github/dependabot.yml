@@ -1,18 +1,11 @@
-# Dependabot configuration.
-# `open-pull-requests-limit` is set high so security-update PRs aren't
-# capped at the default of 5 — Dependabot opens one PR per vulnerable
-# package and the ISO-compliance ruleset gates each on the iso-compliance
-# status check before merge.
+# Dependabot configuration — security-only mode.
+#
+# Setting `updates: []` disables routine version-update PRs (the weekly bumps
+# for every minor/patch release). Dependabot SECURITY-update PRs continue to
+# flow automatically based on each repo's "Code security" settings — they're
+# what the Vanta high-severity Dependabot test cares about.
+#
+# To re-enable routine version updates later, add `package-ecosystem` entries
+# back here.
 version: 2
-updates:
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 50
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 20
+updates: []
