@@ -1,11 +1,13 @@
-# Dependabot configuration — security-only mode.
+# Dependabot configuration — minimal security-focused mode.
 #
-# Setting `updates: []` disables routine version-update PRs (the weekly bumps
-# for every minor/patch release). Dependabot SECURITY-update PRs continue to
-# flow automatically based on each repo's "Code security" settings — they're
-# what the Vanta high-severity Dependabot test cares about.
-#
-# To re-enable routine version updates later, add `package-ecosystem` entries
-# back here.
+# Routine version updates are kept enabled but rate-limited to one open PR
+# at a time (`open-pull-requests-limit: 1`) and only checked monthly.
+# Dependabot SECURITY-update PRs are NOT subject to this limit; they fire
+# automatically based on the repo's "Code security" settings.
 version: 2
-updates: []
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
