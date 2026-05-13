@@ -1,18 +1,13 @@
-# Dependabot configuration.
-# `open-pull-requests-limit` is set high so security-update PRs aren't
-# capped at the default of 5 — Dependabot opens one PR per vulnerable
-# package and the ISO-compliance ruleset gates each on the iso-compliance
-# status check before merge.
+# Dependabot configuration — minimal security-focused mode.
+#
+# Routine version updates are kept enabled but rate-limited to one open PR
+# at a time (`open-pull-requests-limit: 1`) and only checked monthly.
+# Dependabot SECURITY-update PRs are NOT subject to this limit; they fire
+# automatically based on the repo's "Code security" settings.
 version: 2
 updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 50
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 20
+      interval: "monthly"
+    open-pull-requests-limit: 1
