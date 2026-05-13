@@ -29,7 +29,7 @@ build = ["build", "twine"]
 dev = ["black", "bumpver", "isort", "mypy", "pytest", "flake8"]
 images = [
     "ImageHash>=4.3.0, <5.0.0",
-    "Pillow>=10.0.0, <11.0.0"
+    "Pillow>=10.0.0, <13.0.0"
 ]
 
 [project.urls]
