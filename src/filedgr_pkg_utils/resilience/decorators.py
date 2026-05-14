@@ -2,7 +2,7 @@ import time
 import asyncio
 import inspect
 from functools import wraps
-from typing import Callable, Tuple, Type, Any, Optional
+from typing import Callable, Tuple, Type
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 
