@@ -12,17 +12,22 @@ A comprehensive, production-ready Python utility toolkit for modern distributed 
 ## 📦 Installation
 
 Install the base package (extremely lightweight, ideal for AWS Lambda):
+
 ```bash
 pip install filedgr-pkg-utils
+```
 
 Install with optional image perceptual hashing support (includes Pillow and ImageHash):
+
 ```bash
 pip install "filedgr-pkg-utils[images]"
+```
 
-🚀 Prominent Features & Examples
+## 🚀 Prominent Features & Examples
 
-1. Resilience & Aspect-Oriented Hooks
-Stop writing try/except blocks with time.sleep(). Stack our context-aware decorators to build bulletproof network calls and clean up your business logic.
+### 1. Resilience & Aspect-Oriented Hooks
+
+Stop writing try/except blocks with `time.sleep()`. Stack our context-aware decorators to build bulletproof network calls and clean up your business logic.
 
 ```python
 from filedgr_pkg_utils.resilience.decorators import retry, circuit_breaker, fallback
@@ -43,8 +48,10 @@ async def fetch_web3_data(node_url: str):
     # It will retry on failure, trip a circuit breaker if the node is down,
     # serve stale data if all else fails, and log the result when successful.
     pass
+```
 
-2. Unified Compression
+### 2. Unified Compression
+
 A single, clean protocol for zip, gzip, zstd, and brotli. Easily swap algorithms without changing your application code.
 
 ```python
@@ -58,8 +65,10 @@ compressed_data = utils.compress(b"Hello World")
 
 # Compress files and directories
 utils.compress_file("data.json", "data.json.zst")
+```
 
-3. Canonical Serialization & Cryptography
+### 3. Canonical Serialization & Cryptography
+
 Generate deterministic, whitespace-free, and alphabetically sorted JSON payloads—perfect for creating verifiable hashes and blockchain signatures.
 
 ```python
@@ -79,8 +88,10 @@ payload = BlockchainPayload(
 
 # Output is strictly deterministic: {"a_field":1,"timestamp":"2023-10-25T12:30:00.000Z","z_field":"last"}
 json_string = payload.canonical_json()
+```
 
-4. Zero-Config Structured JSON Logging
+### 4. Zero-Config Structured JSON Logging
+
 Output logs as deterministic JSON for flawless Datadog or AWS CloudWatch ingestion. Fully integrates with Python's standard logging library.
 
 ```python
@@ -91,8 +102,10 @@ logger = LoggerFactory.get_logger(__name__)
 
 logger.info("Processing file", extra={"file_id": "ABC-123", "correlation_id": "999"})
 # Output: {"timestamp": "2026-05-14T12:00:00.000Z", "level": "INFO", "logger": "__main__", "message": "Processing file", "file_id": "ABC-123", "correlation_id": "999"}
+```
 
-5. Perceptual Image Hashing (Optional)
+### 5. Perceptual Image Hashing (Optional)
+
 Detect visually similar images, compression artifacts, and resized duplicates using Hamming distance.
 
 ```python
@@ -105,14 +118,20 @@ hash_comp = utils.hash_image("compressed_artifact.jpg")
 
 if utils.is_similar(hash_orig, hash_comp, max_distance=5):
     print("These images are visually similar!")
+```
 
-🛠️ Development & Testing
+## 🛠️ Development & Testing
+
 This project enforces high coverage and clean coding standards.
 
 To run the test suite with coverage:
+
 ```bash
 make test-coverage
+```
 
 To run the linter:
+
 ```bash
 make lint
+```
