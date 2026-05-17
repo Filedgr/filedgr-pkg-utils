@@ -27,11 +27,15 @@ def post_action(
                 result = await func(*args, **kwargs)
 
                 if condition is None or condition(result, *args, **kwargs):
-                    # If the callback is also async, we must await it
                     if inspect.iscoroutinefunction(callback):
                         await callback(result, *args, **kwargs)
                     else:
-                        callback(result, *args, **kwargs)
+                        # Plain callable: could be sync, or a sync wrapper (e.g., lambda)
+                        # that returns a coroutine. If we get a coroutine back, await it
+                        # so async side effects actually run.
+                        maybe_coro = callback(result, *args, **kwargs)
+                        if inspect.iscoroutine(maybe_coro):
+                            await maybe_coro
 
                 return result
 
