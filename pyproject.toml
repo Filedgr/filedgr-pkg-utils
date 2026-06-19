@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filedgr-pkg-utils"
-version = "0.7.0"
+version = "0.8.0"
 requires-python = ">=3.11"
 description = "A library of python based utils needed in the filedgr code stack"
 readme = "README.md"
@@ -21,7 +21,8 @@ dependencies = [
     "orjson>=3.11.5, <4.0.0",
     "web3>=7.14.0, <8.0.0",
     "zstandard>=0.22.0, <1.0.0",
-    "Brotli>=1.1.0, <2.0.0"
+    "Brotli>=1.1.0, <2.0.0",
+    "aiofiles>=25.1.0, <26.0.0"
 ]
 
 [project.optional-dependencies]
@@ -40,7 +41,7 @@ where = ["src"]
 exclude = ["tests*"]
 
 [tool.bumpver]
-current_version = "0.7.0"
+current_version = "0.8.0"
 version_pattern = "MAJOR.MINOR.PATCH[-PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = false
