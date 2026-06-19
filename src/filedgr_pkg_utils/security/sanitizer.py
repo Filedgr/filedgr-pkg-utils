@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Set, Union, Tuple
+from typing import Any, List, Set, Union
 
 # A robust default set of keys that should almost always be redacted in logs
 DEFAULT_SENSITIVE_KEYS: Set[str] = {
@@ -15,6 +15,7 @@ DEFAULT_SENSITIVE_KEYS: Set[str] = {
     "private_key",
     "client_secret"
 }
+
 
 def sanitize_data(
     data: Any,

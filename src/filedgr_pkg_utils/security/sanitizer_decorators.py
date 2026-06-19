@@ -4,6 +4,7 @@ from typing import Callable, Union, List, Set
 
 from filedgr_pkg_utils.security.sanitizer import sanitize_data
 
+
 def sanitize_return(
     sensitive_keys: Union[Set[str], List[str], None] = None,
     mask: str = "*****"

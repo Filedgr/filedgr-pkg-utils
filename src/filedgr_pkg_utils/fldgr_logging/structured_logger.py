@@ -6,6 +6,7 @@ from typing import Union
 
 from filedgr_pkg_utils.fldgr_logging.sanitizer_logger_adapter import SanitizerLoggerAdapter
 
+
 class JsonFormatter(logging.Formatter):
     """
     Formats standard Python log records into a deterministic JSON structure.
