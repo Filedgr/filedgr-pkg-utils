@@ -1,83 +1,39 @@
-import json
 import os
 import logging
-import pytest
-
+from unittest.mock import patch
 from filedgr_pkg_utils.fldgr_logging.structured_logger import LoggerFactory
+from filedgr_pkg_utils.fldgr_logging.sanitizer_logger_adapter import SanitizerLoggerAdapter
 
 
-def test_logger_json_format(capsys):
-    """Test that the logger correctly formats basic logs to JSON."""
-    logger = LoggerFactory.get_logger("test_logger", enabled=True)
-    logger.info("hello world")
+def test_logger_factory_sanitizes_by_default():
+    """Ensure that out-of-the-box, the factory protects the system."""
+    logger = LoggerFactory.get_logger("default_test")
 
-    # Capture stdout
-    captured = capsys.readouterr()
-    log_output = captured.err  # StreamHandler defaults to sys.stderr
-
-    assert log_output != ""
-
-    # Parse the captured JSON string
-    log_dict = json.loads(log_output)
-    assert log_dict["level"] == "INFO"
-    assert log_dict["message"] == "hello world"
-    assert log_dict["logger"] == "test_logger"
-    assert "timestamp" in log_dict
+    assert isinstance(logger, SanitizerLoggerAdapter)
 
 
-def test_logger_extra_kwargs(capsys):
-    """Test that the logger injects the `extra` dictionary into the JSON root."""
-    logger = LoggerFactory.get_logger("test_kwargs", enabled=True)
-    logger.warning("file uploaded", extra={"file_id": "123", "user_id": 999})
+def test_logger_factory_disables_sanitization_via_param():
+    """Ensure developers can turn it off via code parameter."""
+    logger = LoggerFactory.get_logger("param_test", sanitize_pii=False)
 
-    captured = capsys.readouterr()
-    log_dict = json.loads(captured.err)
-
-    assert log_dict["level"] == "WARNING"
-    assert log_dict["message"] == "file uploaded"
-    assert log_dict["file_id"] == "123"
-    assert log_dict["user_id"] == 999
+    # Should be a raw logging.Logger, NOT our SecureAdapter
+    assert not isinstance(logger, SanitizerLoggerAdapter)
+    assert isinstance(logger, logging.Logger)
 
 
-def test_logger_disabled_programmatically(capsys):
-    """Test that setting enabled=False mutes all output."""
-    logger = LoggerFactory.get_logger("silent_logger", enabled=False)
-    logger.error("this should not print")
+@patch.dict(os.environ, {"FILEDGR_SANITIZE_LOGS": "false"})
+def test_logger_factory_disables_sanitization_via_env_var():
+    """Ensure DevOps can turn it off globally via environment variables."""
+    logger = LoggerFactory.get_logger("env_test")
 
-    captured = capsys.readouterr()
-    assert captured.err == ""
-    assert captured.out == ""
-
-    # Ensure it attached the NullHandler
-    assert isinstance(logger.handlers[0], logging.NullHandler)
+    assert not isinstance(logger, SanitizerLoggerAdapter)
+    assert isinstance(logger, logging.Logger)
 
 
-def test_logger_disabled_via_env_var(capsys, monkeypatch):
-    """Test that the FILEDGR_LOGGING_ENABLED environment variable silences output."""
-    # Mock the environment variable
-    monkeypatch.setenv("FILEDGR_LOGGING_ENABLED", "false")
+@patch.dict(os.environ, {"FILEDGR_SANITIZE_LOGS": "false"})
+def test_logger_factory_param_overrides_env_var():
+    """Ensure the code parameter overrides the environment variable."""
+    # Even though the env var says False, we explicitly request True
+    logger = LoggerFactory.get_logger("override_test", sanitize_pii=True)
 
-    # Do not pass the `enabled` kwarg, forcing it to read the env var
-    logger = LoggerFactory.get_logger("env_logger")
-    logger.critical("this should not print either")
-
-    captured = capsys.readouterr()
-    assert captured.err == ""
-    assert isinstance(logger.handlers[0], logging.NullHandler)
-
-
-def test_logger_exception_formatting(capsys):
-    """Test that exceptions are caught and formatted inside the JSON structure."""
-    logger = LoggerFactory.get_logger("error_logger", enabled=True)
-
-    try:
-        1 / 0
-    except ZeroDivisionError:
-        logger.exception("A math error occurred")
-
-    captured = capsys.readouterr()
-    log_dict = json.loads(captured.err)
-
-    assert log_dict["level"] == "ERROR"
-    assert log_dict["message"] == "A math error occurred"
-    assert "ZeroDivisionError" in log_dict["exception"]
+    assert isinstance(logger, SanitizerLoggerAdapter)

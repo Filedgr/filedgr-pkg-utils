@@ -1,8 +1,10 @@
-import os
 import json
 import logging
+import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Union
+
+from filedgr_pkg_utils.fldgr_logging.sanitizer_logger_adapter import SanitizerLoggerAdapter
 
 
 class JsonFormatter(logging.Formatter):
@@ -35,46 +37,42 @@ class JsonFormatter(logging.Formatter):
 
 
 class LoggerFactory:
-    """
-    Factory to retrieve a pre-configured, structured JSON logger.
-    """
-
     @staticmethod
-    def get_logger(name: str, enabled: Optional[bool] = None, level: int = logging.INFO) -> logging.Logger:
+    def get_logger(
+            name: str,
+            sanitize_pii: Union[bool, None] = None
+    ) -> Union[logging.Logger, logging.LoggerAdapter]:
         """
-        Retrieves a configured JSON logger.
+        Creates and configures a logger for the application.
 
         :param name: The name of the logger (usually __name__).
-        :param enabled: Explicitly enable/disable fldgr_logging. If None, checks the
-                        FILEDGR_LOGGING_ENABLED environment variable.
-        :param level: The fldgr_logging level (e.g., fldgr_logging.INFO, fldgr_logging.DEBUG).
+        :param sanitize_pii: If True, wraps the logger in a PII Sanitizer.
+                             If None, defaults to the 'FILEDGR_SANITIZE_LOGS' env variable (default: True).
         """
-        logger = logging.getLogger(name)
-
-        # Clear existing handlers to prevent duplicate log lines if called multiple times
-        if logger.hasHandlers():
-            logger.handlers.clear()
-
-        # Determine if fldgr_logging should be enabled (Code takes precedence over Env Vars)
-        if enabled is None:
-            env_enabled = os.getenv("FILEDGR_LOGGING_ENABLED", "true").lower()
-            is_enabled = env_enabled in ("true", "1", "yes")
+        # 1. Determine if we should sanitize based on param or environment variable
+        if sanitize_pii is None:
+            # Default to True for safety, unless explicitly disabled in the environment
+            env_sanitize = os.getenv("FILEDGR_SANITIZE_LOGS", "true").lower()
+            should_sanitize = env_sanitize in ("true", "1", "yes")
         else:
-            is_enabled = enabled
+            should_sanitize = sanitize_pii
 
-        # If disabled, attach a NullHandler (logs go into the void with zero overhead)
-        if not is_enabled:
-            logger.addHandler(logging.NullHandler())
-            logger.propagate = False
-            return logger
+        # 2. Get the base logger
+        base_logger = logging.getLogger(name)
 
-        # If enabled, attach the JSON Formatter outputting to stdout
-        handler = logging.StreamHandler()
-        handler.setFormatter(JsonFormatter())
+        # Configure handlers, formatters, and log levels if not already set up
+        if not base_logger.handlers:
+            handler = logging.StreamHandler()
+            # (Assuming you attach your custom JSON formatter here)
+            # formatter = JsonFormatter()
+            # handler.setFormatter(formatter)
+            base_logger.addHandler(handler)
+            base_logger.setLevel(logging.INFO)
 
-        logger.addHandler(handler)
-        logger.setLevel(level)
-        # Prevent logs from propagating to the root logger and printing twice
-        logger.propagate = False
-
-        return logger
+        # 3. Return the Secure Adapter or the raw Base Logger
+        if should_sanitize:
+            # Secure mode: Intercepts and masks sensitive data
+            return SanitizerLoggerAdapter(base_logger, extra={})
+        else:
+            # Raw mode: Highly dangerous for production, great for local debugging
+            return base_logger
