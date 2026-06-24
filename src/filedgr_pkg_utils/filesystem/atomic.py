@@ -7,8 +7,9 @@ from typing import Generator, AsyncGenerator, Union, IO, Any
 
 
 @contextmanager
-def atomic_write(file_path: Union[str, Path], mode: str = "w", encoding: str = "utf-8", **kwargs) -> Generator[
-    IO[Any], None, None]:
+def atomic_write(
+    file_path: Union[str, Path], mode: str = "w", encoding: str = "utf-8", **kwargs
+) -> Generator[IO[Any], None, None]:
     """
     Context manager for atomic file writes.
     Prevents partial file writes in case of application crashes or power failures.
