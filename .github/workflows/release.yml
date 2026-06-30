@@ -1,0 +1,77 @@
+name: CD - Version & Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write # Needed to push the version bump commit back to main
+
+env:
+  # Your existing AWS secrets for CodeArtifact
+  AWS_ACCESS_KEY_ID: ${{ secrets.awsAccessKeyIdDev }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.awsSecretAccessKeyDev }}
+
+jobs:
+  release:
+    name: Bump Version and Publish
+    runs-on: ubuntu-22.04
+    # ONLY run if the commit message contains a release keyword
+    if: |
+      contains(github.event.head_commit.message, '#patch') || 
+      contains(github.event.head_commit.message, '#minor') || 
+      contains(github.event.head_commit.message, '#major')
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # Necessary to allow pushing the version bump commit
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Build Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bumpver build twine
+
+      - name: Determine Version Bump Level
+        id: bump-level
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" == *'#major'* ]]; then
+            echo "LEVEL=--major" >> $GITHUB_ENV
+          elif [[ "${{ github.event.head_commit.message }}" == *'#minor'* ]]; then
+            echo "LEVEL=--minor" >> $GITHUB_ENV
+          else
+            echo "LEVEL=--patch" >> $GITHUB_ENV
+          fi
+
+      - name: Bump Version
+        run: |
+          # Uses the bumpver settings in your pyproject.toml
+          bumpver update $LEVEL
+
+      - name: Commit and Push Version Bump
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: bump version [skip ci]"
+          file_pattern: "pyproject.toml src/filedgr_pkg_utils/__init__.py"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Login to AWS CodeArtifact
+        run: |
+          aws codeartifact login --tool twine --repository filedgr-pkg-awsutils --domain filedgr --domain-owner 867912683733 --region eu-central-1
+
+      - name: Build Package
+        run: make package
+
+      - name: Upload Package
+        run: make upload-package
