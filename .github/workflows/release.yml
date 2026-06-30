@@ -4,12 +4,13 @@ on:
   push:
     branches:
       - main
+      - 'feature/*'
+      - 'bugfix/*'
 
 permissions:
-  contents: write # Needed to push the version bump commit back to main
+  contents: write # Needed to push the version bump commit back to the repo
 
 env:
-  # Your existing AWS secrets for CodeArtifact
   AWS_ACCESS_KEY_ID: ${{ secrets.awsAccessKeyIdDev }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.awsSecretAccessKeyDev }}
 
@@ -21,14 +22,15 @@ jobs:
     if: |
       contains(github.event.head_commit.message, '#patch') || 
       contains(github.event.head_commit.message, '#minor') || 
-      contains(github.event.head_commit.message, '#major')
+      contains(github.event.head_commit.message, '#major') || 
+      contains(github.event.head_commit.message, '#alpha') || 
+      contains(github.event.head_commit.message, '#final')
     timeout-minutes: 10
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          # Necessary to allow pushing the version bump commit
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
@@ -45,17 +47,38 @@ jobs:
       - name: Determine Version Bump Level
         id: bump-level
         run: |
-          if [[ "${{ github.event.head_commit.message }}" == *'#major'* ]]; then
+          MSG="${{ github.event.head_commit.message }}"
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          
+          # 1. Handle Pre-releases (Allowed on ANY branch)
+          if [[ "$MSG" == *'#alpha'* ]]; then
+            if bumpver show | grep -q "alpha"; then
+              echo "LEVEL=--tag-num" >> $GITHUB_ENV
+            else
+              echo "LEVEL=--patch --tag=alpha" >> $GITHUB_ENV
+            fi
+            
+          # 2. SAFETY GUARD: Block stable releases on feature branches
+          elif [[ "$BRANCH_NAME" != "main" ]]; then
+            echo "🚨 Error: Stable releases (#patch, #minor, #major, #final) are ONLY allowed on the main branch!"
+            exit 1
+            
+          # 3. Handle Stable Releases (Locked to main)
+          elif [[ "$MSG" == *'#major'* ]]; then
             echo "LEVEL=--major" >> $GITHUB_ENV
-          elif [[ "${{ github.event.head_commit.message }}" == *'#minor'* ]]; then
+            
+          elif [[ "$MSG" == *'#minor'* ]]; then
             echo "LEVEL=--minor" >> $GITHUB_ENV
+            
+          elif [[ "$MSG" == *'#final'* ]]; then
+            echo "LEVEL=--tag=final" >> $GITHUB_ENV
+            
           else
             echo "LEVEL=--patch" >> $GITHUB_ENV
           fi
 
       - name: Bump Version
         run: |
-          # Uses the bumpver settings in your pyproject.toml
           bumpver update $LEVEL
 
       - name: Commit and Push Version Bump
