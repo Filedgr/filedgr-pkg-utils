@@ -5,14 +5,25 @@ on:
     branches:
       - main
 
+# Give the bot permission to push commits to the PR branch
+permissions:
+  contents: write
+
 jobs:
   lint-and-test:
     name: Lint & Test
     runs-on: ubuntu-22.04
     timeout-minutes: 15
+
+    # Optional: Prevent infinite loop if the bot's commit triggers another CI run
+    if: github.actor != 'github-actions[bot]'
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # Check out the actual feature branch instead of the PR merge commit
+          ref: ${{ github.head_ref }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -28,5 +39,15 @@ jobs:
       - name: Static Code Analysis (Lint)
         run: make lint
 
-      - name: Run Tests with Coverage
-        run: make test-coverage
+      - name: Run Tests & Generate Badge
+        run: |
+          # This runs pytest AND generates the coverage.svg
+          make generate-badges
+
+      - name: Commit and Push Badge to PR
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: auto-update coverage badge [skip ci]"
+          file_pattern: coverage.svg
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"

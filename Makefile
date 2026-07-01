@@ -1,6 +1,6 @@
 PROJECT_NAME = filedgr_pkg_utils
 DATE    ?= $(shell date +%FT%T%z)
-MIN = 40
+MIN = 70
 
 .PHONY: bumpver package upload-package test-coverage generate-badges lint clean help
 
