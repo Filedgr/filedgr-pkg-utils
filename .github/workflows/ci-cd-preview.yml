@@ -1,7 +1,8 @@
 on:
-  push:
-    branches-ignore:
-      - main
+  workflow_dispatch:
+#  push:
+#    branches-ignore:
+#      - main
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.awsAccessKeyIdDev }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.awsSecretAccessKeyDev }}

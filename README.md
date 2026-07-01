@@ -1,8 +1,9 @@
 # filedgr-pkg-utils
 
 ![Build Status](https://img.shields.io/github/actions/workflow/status/Filedgr/filedgr-pkg-utils/cd-main.yml?branch=main)
-![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)
+![Coverage](./coverage.svg)
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)
+[![PyPI version](https://badge.fury.io/py/filedgr-pkg-utils.svg)](https://pypi.org/project/filedgr-pkg-utils/)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 A comprehensive, production-ready Python utility toolkit for modern distributed systems, Web3 integrations, and data-heavy microservices.
