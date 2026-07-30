@@ -1,6 +1,6 @@
 # filedgr-pkg-utils
 
-![Build Status](https://img.shields.io/github/actions/workflow/status/Filedgr/filedgr-pkg-utils/ci.yml?branch=main)
+![Build Status](https://img.shields.io/github/actions/workflow/status/Filedgr/filedgr-pkg-utils/release.yml?branch=main)
 ![Coverage](./coverage.svg)
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)
 [![PyPI version](https://badge.fury.io/py/filedgr-pkg-utils.svg)](https://pypi.org/project/filedgr-pkg-utils/)
