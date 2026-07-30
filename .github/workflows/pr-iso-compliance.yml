@@ -7,7 +7,7 @@ name: PR ISO Compliance
 # org-level branch ruleset to require this check on every PR.
 
 on:
-  workflow-dispatch:
+  pull_request:
 
 permissions:
   contents: read
