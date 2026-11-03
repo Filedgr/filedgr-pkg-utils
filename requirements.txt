@@ -4,7 +4,7 @@ orjson>=3.11.9, <4.0.0
 
 # Crypto / Hashing
 cryptography>=49.0.0, <50.0.0
-web3>=7.16.0, <8.0.0
+web3>=7.16.0, <9.0.0
 
 #Compression
 zstandard>=0.22.0, <1.0.0
