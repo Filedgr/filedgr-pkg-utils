@@ -73,8 +73,11 @@ def test_sync_timeout():
         time.sleep(0.5)
         return "Done"
 
+    start = time.perf_counter()
     with pytest.raises(TimeoutError):
         slow_func()
+    # Must return at the deadline, not when the worker thread finishes
+    assert time.perf_counter() - start < 0.4
 
 
 def test_rate_limit():

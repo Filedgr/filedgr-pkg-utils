@@ -45,9 +45,8 @@ def test_canonical_json_sorting_and_whitespace():
 
 def test_canonical_json_datetime_serialization():
     """
-    Tests that datetimes are correctly dumped into the JSON representation.
-    Note: Pydantic V2's `model_dump(mode="json")` natively converts datetimes
-    to strings, but we test the end-to-end integration here.
+    Tests that datetimes go through the canonical formatter end-to-end
+    (UTC, millisecond precision, Z suffix).
     """
     # Create a datetime in UTC
     dt = datetime(2023, 10, 25, 12, 34, 56, 789000, tzinfo=timezone.utc)
@@ -55,8 +54,7 @@ def test_canonical_json_datetime_serialization():
 
     json_str = payload.canonical_json()
 
-    # It should correctly represent the ISO format
-    assert '"timestamp":"2023-10-25T12:34:56.789000Z"' in json_str
+    assert json_str == '{"timestamp":"2023-10-25T12:34:56.789Z"}'
 
 
 def test_default_datetime_formatter():
@@ -86,3 +84,33 @@ def test_default_type_error_on_unknown():
 
     with pytest.raises(TypeError):
         CanonicalJsonMixin._default(UnserializableObject())
+
+def test_canonical_json_non_utc_datetime_is_normalized():
+    dt = datetime(2024, 1, 1, 12, 0, 0, 123456, tzinfo=timezone(timedelta(hours=2)))
+    assert DatetimePayload(timestamp=dt).canonical_json() == '{"timestamp":"2024-01-01T10:00:00.123Z"}'
+
+
+def test_canonical_json_naive_datetime_treated_as_utc():
+    dt = datetime(2024, 1, 1, 12, 0, 0)
+    assert DatetimePayload(timestamp=dt).canonical_json() == '{"timestamp":"2024-01-01T12:00:00.000Z"}'
+
+
+def test_canonical_json_nested_and_non_native_types():
+    from decimal import Decimal
+    from typing import List
+
+    class Inner(CanonicalJsonMixin):
+        when: datetime
+        amount: Decimal
+
+    class Outer(CanonicalJsonMixin):
+        items: List[Inner]
+        b: str
+
+    payload = Outer(
+        b="x",
+        items=[Inner(when=datetime(2024, 1, 1, tzinfo=timezone.utc), amount=Decimal("1.50"))],
+    )
+    assert payload.canonical_json() == (
+        '{"b":"x","items":[{"amount":"1.50","when":"2024-01-01T00:00:00.000Z"}]}'
+    )

@@ -136,7 +136,13 @@ def fallback(fallback_function: Callable):
 
 
 def timeout(seconds: float):
-    """Cancels the execution if it takes longer than `seconds`."""
+    """
+    Raises ``TimeoutError`` if the call takes longer than `seconds`.
+
+    Async functions are cancelled. Sync functions run in a worker thread that
+    cannot be stopped: the caller gets the error on time, but the function
+    keeps running in the background until it returns.
+    """
 
     def decorator(func: Callable) -> Callable:
         if inspect.iscoroutinefunction(func):
@@ -148,12 +154,18 @@ def timeout(seconds: float):
         else:
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(func, *args, **kwargs)
-                    try:
-                        return future.result(timeout=seconds)
-                    except FuturesTimeoutError:
-                        raise TimeoutError(f"Function timed out after {seconds}s")
+                # Not using the executor as a context manager: its __exit__ waits for
+                # the worker thread, which would block until func finishes anyway.
+                # Python threads cannot be killed, so on timeout the call keeps
+                # running in the background; the caller just stops waiting for it.
+                executor = ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(func, *args, **kwargs)
+                try:
+                    return future.result(timeout=seconds)
+                except FuturesTimeoutError:
+                    raise TimeoutError(f"Function timed out after {seconds}s") from None
+                finally:
+                    executor.shutdown(wait=False)
 
             return sync_wrapper
 
