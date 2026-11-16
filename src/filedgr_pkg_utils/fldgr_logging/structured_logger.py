@@ -51,7 +51,8 @@ class LoggerFactory:
     @staticmethod
     def get_logger(
             name: str,
-            sanitize_pii: Union[bool, None] = None
+            sanitize_pii: Union[bool, None] = None,
+            propagate: Union[bool, None] = None
     ) -> Union[logging.Logger, logging.LoggerAdapter]:
         """
         Creates and configures a logger for the application.
@@ -59,6 +60,12 @@ class LoggerFactory:
         :param name: The name of the logger (usually __name__).
         :param sanitize_pii: If True, wraps the logger in a PII Sanitizer.
                              If None, defaults to the 'FILEDGR_SANITIZE_LOGS' env variable (default: True).
+        :param propagate: Whether records are also passed on to parent/root handlers.
+                          Set to False when the platform installs its own root handler
+                          (e.g. AWS Lambda) to avoid every line being logged twice.
+                          If None, uses the 'FILEDGR_LOG_PROPAGATE' env variable when set,
+                          otherwise leaves the logger's current setting (Python default: True).
+                          Note: with False, pytest's ``caplog`` no longer sees these records.
         """
         # 1. Determine if we should sanitize based on param or environment variable
         if sanitize_pii is None:
@@ -77,6 +84,13 @@ class LoggerFactory:
             handler.setFormatter(JsonFormatter())
             base_logger.addHandler(handler)
             base_logger.setLevel(logging.INFO)
+
+        if propagate is None:
+            env_propagate = os.getenv("FILEDGR_LOG_PROPAGATE")
+            if env_propagate is not None:
+                propagate = env_propagate.lower() in ("true", "1", "yes")
+        if propagate is not None:
+            base_logger.propagate = propagate
 
         # 3. Return the Secure Adapter or the raw Base Logger
         if should_sanitize:

@@ -32,7 +32,7 @@ Stop writing try/except blocks with `time.sleep()`. Stack our context-aware deco
 
 ```python
 from filedgr_pkg_utils.resilience.decorators import retry, circuit_breaker, fallback
-from filedgr_pkg_utils.hooks.post_action import post_action
+from filedgr_pkg_utils.hooks.decorators import post_action
 
 def audit_log(result, *args, **kwargs):
     print(f"Audit: Successfully fetched data {result}")
@@ -96,14 +96,20 @@ json_string = payload.canonical_json()
 Output logs as deterministic JSON for flawless Datadog or AWS CloudWatch ingestion. Fully integrates with Python's standard logging library.
 
 ```python
-from filedgr_pkg_utils.logging import LoggerFactory
+from filedgr_pkg_utils.fldgr_logging import LoggerFactory
 
-# Automatically reads FILEDGR_LOGGING_ENABLED env var
 logger = LoggerFactory.get_logger(__name__)
 
-logger.info("Processing file", extra={"file_id": "ABC-123", "correlation_id": "999"})
-# Output: {"timestamp": "2026-05-14T12:00:00.000Z", "level": "INFO", "logger": "__main__", "message": "Processing file", "file_id": "ABC-123", "correlation_id": "999"}
+logger.info("Processing file", extra={"file_id": "ABC-123", "access_token": "abc"})
+# Output: {"timestamp": "2026-05-14T12:00:00.000Z", "level": "INFO", "logger": "__main__", "message": "Processing file", "file_id": "ABC-123", "access_token": "*****"}
 ```
+
+| Parameter | Environment variable | Default | Effect |
+|---|---|---|---|
+| `sanitize_pii` | `FILEDGR_SANITIZE_LOGS` | `true` | Masks sensitive keys (tokens, passwords, API keys, ...) in `extra`. |
+| `propagate` | `FILEDGR_LOG_PROPAGATE` | unchanged (`true`) | Set to `false` where the platform adds its own root handler (e.g. AWS Lambda) so lines aren't logged twice. |
+
+An explicit parameter always overrides the environment variable.
 
 ### 5. Perceptual Image Hashing (Optional)
 

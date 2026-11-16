@@ -109,3 +109,52 @@ def test_logger_factory_emits_sanitized_json():
     assert out["message"] == "login"
     assert out["user"] == "alice"
     assert out["access_token"] == "*****"
+
+
+# --- propagate option ---
+
+def _root_capture():
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logging.getLogger().addHandler(handler)
+    return stream, handler
+
+
+def test_logger_factory_propagates_by_default():
+    logger = LoggerFactory.get_logger("propagate_default_test")
+    assert logger.logger.propagate is True
+
+
+def test_logger_factory_propagate_false_stops_duplicate_root_output():
+    stream, root_handler = _root_capture()
+    try:
+        logger = LoggerFactory.get_logger("propagate_off_test", propagate=False)
+        logger.logger.handlers[0].setStream(io.StringIO())
+        logger.info("only once")
+        assert logger.logger.propagate is False
+        assert stream.getvalue() == ""
+    finally:
+        logging.getLogger().removeHandler(root_handler)
+
+
+def test_logger_factory_propagate_true_reaches_root():
+    stream, root_handler = _root_capture()
+    try:
+        logger = LoggerFactory.get_logger("propagate_on_test", propagate=True)
+        logger.logger.handlers[0].setStream(io.StringIO())
+        logger.info("to root")
+        assert "to root" in stream.getvalue()
+    finally:
+        logging.getLogger().removeHandler(root_handler)
+
+
+@patch.dict(os.environ, {"FILEDGR_LOG_PROPAGATE": "false"})
+def test_logger_factory_propagate_via_env_var():
+    logger = LoggerFactory.get_logger("propagate_env_test")
+    assert logger.logger.propagate is False
+
+
+@patch.dict(os.environ, {"FILEDGR_LOG_PROPAGATE": "false"})
+def test_logger_factory_propagate_param_overrides_env_var():
+    logger = LoggerFactory.get_logger("propagate_override_test", propagate=True)
+    assert logger.logger.propagate is True
