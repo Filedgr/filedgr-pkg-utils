@@ -95,3 +95,154 @@ def test_rate_limit():
     time.sleep(0.51)
     # Allowed again
     assert api_call() is True
+
+
+# --- circuit_breaker: half-open, exceptions, thread safety ---
+
+import threading
+
+from filedgr_pkg_utils.resilience import CircuitBreakerOpenError, RateLimitExceededError
+
+
+def test_circuit_breaker_open_error_is_backwards_compatible():
+    assert issubclass(CircuitBreakerOpenError, RuntimeError)
+    assert issubclass(RateLimitExceededError, PermissionError)
+
+
+def test_circuit_breaker_half_open_success_closes():
+    fail = True
+
+    @circuit_breaker(failure_threshold=1, recovery_timeout_seconds=0.05)
+    def api():
+        if fail:
+            raise ValueError("down")
+        return "ok"
+
+    with pytest.raises(ValueError):
+        api()
+    with pytest.raises(CircuitBreakerOpenError):
+        api()
+
+    time.sleep(0.06)
+    fail = False
+    assert api() == "ok"  # trial call succeeds -> CLOSED
+    assert api() == "ok"
+
+
+def test_circuit_breaker_half_open_failure_reopens_immediately():
+    @circuit_breaker(failure_threshold=3, recovery_timeout_seconds=0.05)
+    def api():
+        raise ValueError("down")
+
+    for _ in range(3):
+        with pytest.raises(ValueError):
+            api()
+    time.sleep(0.06)
+    with pytest.raises(ValueError):
+        api()  # trial call fails
+    with pytest.raises(CircuitBreakerOpenError):
+        api()  # open again right away, for a full timeout
+
+
+def test_circuit_breaker_half_open_allows_single_trial_call():
+    release = threading.Event()
+    started = threading.Event()
+    should_fail = True
+
+    @circuit_breaker(failure_threshold=1, recovery_timeout_seconds=0.05)
+    def api():
+        if should_fail:
+            raise ValueError("down")
+        started.set()
+        release.wait(timeout=2)
+        return "ok"
+
+    with pytest.raises(ValueError):
+        api()
+    time.sleep(0.06)
+    should_fail = False
+
+    results = []
+    trial = threading.Thread(target=lambda: results.append(api()))
+    trial.start()
+    assert started.wait(timeout=1)
+
+    # While the trial call is running, everyone else is rejected
+    with pytest.raises(CircuitBreakerOpenError):
+        api()
+
+    release.set()
+    trial.join()
+    assert results == ["ok"]
+    assert api() == "ok"
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_cancelled_trial_frees_the_slot():
+    @circuit_breaker(failure_threshold=1, recovery_timeout_seconds=0.05)
+    async def api(fail=False, hang=False):
+        if fail:
+            raise ValueError("down")
+        if hang:
+            await asyncio.sleep(10)
+        return "ok"
+
+    with pytest.raises(ValueError):
+        await api(fail=True)
+    await asyncio.sleep(0.06)
+
+    task = asyncio.create_task(api(hang=True))
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert await api() == "ok"  # a new trial call is allowed
+
+
+def test_circuit_breaker_counts_failures_across_threads():
+    @circuit_breaker(failure_threshold=50, recovery_timeout_seconds=60)
+    def api():
+        raise ValueError("down")
+
+    def worker():
+        for _ in range(10):
+            try:
+                api()
+            except (ValueError, CircuitBreakerOpenError):
+                pass
+
+    threads = [threading.Thread(target=worker) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    with pytest.raises(CircuitBreakerOpenError):
+        api()
+
+
+def test_rate_limit_is_exact_under_concurrency():
+    @rate_limit(calls=10, period_seconds=60)
+    def api():
+        return True
+
+    allowed = []
+    rejected = []
+    barrier = threading.Barrier(50)
+
+    def worker():
+        barrier.wait()
+        try:
+            allowed.append(api())
+        except RateLimitExceededError:
+            rejected.append(1)
+
+    threads = [threading.Thread(target=worker) for _ in range(50)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(allowed) == 10
+    assert len(rejected) == 40
