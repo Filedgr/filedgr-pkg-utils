@@ -233,6 +233,113 @@ def test_fire_and_forget_sync():
     assert execution_flag is True
 
 
+@pytest.mark.asyncio
+async def test_fire_and_forget_async_task_is_kept_alive():
+    import gc
+    from filedgr_pkg_utils.hooks import decorators
+
+    done = asyncio.Event()
+
+    @fire_and_forget
+    async def bg_task():
+        await asyncio.sleep(0.05)
+        done.set()
+
+    await bg_task()
+    assert len(decorators._background_tasks) == 1
+    gc.collect()  # the task must survive a collection while running
+    await asyncio.wait_for(done.wait(), timeout=1)
+    await asyncio.sleep(0)  # let the done-callback run
+    assert len(decorators._background_tasks) == 0
+
+
+@pytest.mark.asyncio
+async def test_fire_and_forget_async_error_is_logged_and_reported(caplog):
+    errors = []
+
+    @fire_and_forget(on_error=lambda exc, *a, **kw: errors.append((exc, a, kw)))
+    async def bg_task(x, y=None):
+        raise ValueError("boom")
+
+    with caplog.at_level("ERROR", logger="filedgr_pkg_utils.hooks.decorators"):
+        assert await bg_task(1, y=2) is None
+        await asyncio.sleep(0.01)
+
+    assert len(errors) == 1
+    exc, args, kwargs = errors[0]
+    assert isinstance(exc, ValueError) and args == (1,) and kwargs == {"y": 2}
+    assert "bg_task failed" in caplog.text
+    assert "ValueError: boom" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fire_and_forget_async_cancellation_is_not_an_error(caplog):
+    from filedgr_pkg_utils.hooks import decorators
+    errors = []
+
+    @fire_and_forget(on_error=lambda exc, *a, **kw: errors.append(exc))
+    async def bg_task():
+        await asyncio.sleep(10)
+
+    await bg_task()
+    (task,) = decorators._background_tasks
+    task.cancel()
+    await asyncio.sleep(0.01)
+    assert errors == []
+    assert "failed" not in caplog.text
+
+
+def test_fire_and_forget_sync_error_is_logged_and_reported(caplog):
+    import threading
+    reported = threading.Event()
+    errors = []
+
+    def on_error(exc, *args, **kwargs):
+        errors.append(exc)
+        reported.set()
+
+    @fire_and_forget(on_error=on_error)
+    def bg_task():
+        raise RuntimeError("thread boom")
+
+    with caplog.at_level("ERROR", logger="filedgr_pkg_utils.hooks.decorators"):
+        assert bg_task() is None
+        assert reported.wait(timeout=1)
+
+    assert isinstance(errors[0], RuntimeError)
+    assert "RuntimeError: thread boom" in caplog.text
+
+
+def test_fire_and_forget_failing_on_error_does_not_crash(caplog):
+    import threading
+    called = threading.Event()
+
+    def on_error(exc):
+        called.set()
+        raise KeyError("handler broke")
+
+    @fire_and_forget(on_error=on_error)
+    def bg_task():
+        raise RuntimeError("boom")
+
+    with caplog.at_level("ERROR", logger="filedgr_pkg_utils.hooks.decorators"):
+        bg_task()
+        assert called.wait(timeout=1)
+        import time
+        time.sleep(0.05)
+    assert "on_error handler for background task" in caplog.text
+
+
+def test_fire_and_forget_rejects_async_on_error():
+    async def handler(exc):
+        pass
+
+    with pytest.raises(TypeError):
+        @fire_and_forget(on_error=handler)
+        def bg_task():
+            pass
+
+
 def test_transform_input_sync():
     def strip_strings(*args, **kwargs):
         # Convert all string args to uppercase

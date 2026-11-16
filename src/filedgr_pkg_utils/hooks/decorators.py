@@ -1,9 +1,10 @@
 import inspect
+import logging
 import time
 import asyncio
 import threading
 from functools import wraps
-from typing import Callable, Any, Optional, Tuple, Type
+from typing import Callable, Any, Optional, Set, Tuple, Type
 
 
 def post_action(
@@ -163,28 +164,83 @@ def measure_time(callback: Callable[..., Any]):
     return decorator
 
 
-def fire_and_forget(func: Callable) -> Callable:
-    """
-    Runs the function in the background.
-    Returns None immediately, unblocking the caller.
-    """
-    if inspect.iscoroutinefunction(func):
-        @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            # Schedules the coroutine to run on the event loop
-            asyncio.create_task(func(*args, **kwargs))
-            return None
+# Strong references to in-flight background tasks. The event loop only keeps weak
+# references, so without this a running task can be garbage-collected mid-execution.
+_background_tasks: Set["asyncio.Task[Any]"] = set()
 
-        return async_wrapper
-    else:
-        @wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            # Spawns a background thread for the sync function
-            t = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
-            t.start()
-            return None
+_logger = logging.getLogger(__name__)
 
-        return sync_wrapper
+
+def fire_and_forget(
+        func: Optional[Callable] = None,
+        *,
+        on_error: Optional[Callable[..., Any]] = None
+):
+    """
+    Runs the function in the background and returns None immediately.
+
+    Usable as ``@fire_and_forget`` or ``@fire_and_forget(on_error=handler)``.
+
+    - Async functions are scheduled as a task on the running event loop. The task
+      is kept referenced until it finishes, so it cannot be garbage-collected early.
+    - Sync functions run in a daemon thread. Daemon threads are killed when the
+      process exits, so don't use this for work that must complete.
+
+    Exceptions raised by the background work are never silently lost: they are
+    logged with their traceback on the ``filedgr_pkg_utils.hooks.decorators``
+    logger and, if given, passed to ``on_error(exception, *args, **kwargs)``.
+    ``on_error`` must be a plain (sync) callable.
+    """
+
+    def _report(exc: BaseException, args: tuple, kwargs: dict, func_name: str) -> None:
+        _logger.error(
+            "Background task %s failed", func_name,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+        if on_error is not None:
+            try:
+                on_error(exc, *args, **kwargs)
+            except Exception:
+                _logger.exception("on_error handler for background task %s failed", func_name)
+
+    def decorator(fn: Callable) -> Callable:
+        if inspect.iscoroutinefunction(on_error):
+            raise TypeError("fire_and_forget on_error must be a sync callable.")
+
+        if inspect.iscoroutinefunction(fn):
+            @wraps(fn)
+            async def async_wrapper(*args, **kwargs):
+                task = asyncio.create_task(fn(*args, **kwargs))
+                _background_tasks.add(task)
+
+                def _done(t: "asyncio.Task[Any]") -> None:
+                    _background_tasks.discard(t)
+                    if not t.cancelled() and t.exception() is not None:
+                        _report(t.exception(), args, kwargs, fn.__qualname__)
+
+                task.add_done_callback(_done)
+                return None
+
+            return async_wrapper
+        else:
+            @wraps(fn)
+            def sync_wrapper(*args, **kwargs):
+                def _run():
+                    try:
+                        fn(*args, **kwargs)
+                    except Exception as exc:
+                        _report(exc, args, kwargs, fn.__qualname__)
+
+                t = threading.Thread(target=_run, daemon=True, name=f"fire_and_forget:{fn.__qualname__}")
+                t.start()
+                return None
+
+            return sync_wrapper
+
+    if func is not None:
+        # Used as bare @fire_and_forget
+        return decorator(func)
+    return decorator
 
 
 def transform_input(transformer: Callable[..., Tuple[Tuple, dict]]):
