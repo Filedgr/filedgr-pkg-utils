@@ -1,7 +1,7 @@
 from typing import Protocol, BinaryIO
 import hashlib
 
-from eth_hash.auto import keccak
+from filedgr_pkg_utils._optional import require
 
 
 class HashAlgorithm(Protocol):
@@ -88,15 +88,20 @@ class Keccak256Algorithm:
     """
     name = "keccak256"
 
+    def __init__(self):
+        # Requires the 'evm' extra; checked here so the other algorithms
+        # in this module work without it.
+        self._keccak = require("eth_hash.auto", "evm", "Keccak256Algorithm").keccak
+
     def hash_bytes(self, data: bytes) -> bytes:
-        return keccak(data)
+        return self._keccak(data)
 
     def hash_file(self, path: str, chunk_size: int = 1024 * 1024) -> bytes:
         with open(path, "rb") as f:
             return self.hash_stream(f, chunk_size=chunk_size)
 
     def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
-        h = keccak.new(b"")
+        h = self._keccak.new(b"")
         while chunk := stream.read(chunk_size):
             h.update(chunk)
         return h.digest()

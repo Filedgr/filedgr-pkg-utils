@@ -1,7 +1,12 @@
-import orjson
-from pydantic import BaseModel
 from datetime import datetime, timezone
 from typing import Any
+
+from filedgr_pkg_utils._optional import require
+
+orjson = require("orjson", "canonical", "CanonicalJsonMixin")
+require("pydantic", "canonical", "CanonicalJsonMixin")
+
+from pydantic import BaseModel  # noqa: E402
 
 
 class CanonicalJsonMixin(BaseModel):

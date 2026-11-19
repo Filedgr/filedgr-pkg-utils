@@ -1,4 +1,6 @@
-import zstandard as zstd
+from filedgr_pkg_utils._optional import require
+
+zstd = require("zstandard", "compression", "ZstdAlgorithm")
 
 
 class ZstdAlgorithm:

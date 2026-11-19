@@ -1,4 +1,6 @@
-from eth_account import Account
+from filedgr_pkg_utils._optional import require
+
+Account = require("eth_account", "evm", "Secp256k1EvmAlgorithm").Account
 
 
 class Secp256k1EvmAlgorithm:

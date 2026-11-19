@@ -15,24 +15,47 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = ["filedgr", "pkg", "utils"]
-dependencies = [
-    "pydantic>=2.12.5, <3.0.0",
-    "cryptography>=49.0.0, <50.0.0",
-    "orjson>=3.11.5, <4.0.0",
-    "rfc8785>=0.1.4, <0.2.0",
-    "web3>=7.14.0, <8.0.0",
-    "zstandard>=0.22.0, <1.0.0",
-    "Brotli>=1.1.0, <2.0.0",
-    "aiofiles>=25.1.0, <26.0.0"
-]
+# The base install has no third-party dependencies: hooks, resilience, caching,
+# security, logging, filesystem (sync), evm hex helpers, sha256/sha512/blake2b
+# hashing, HMAC signing and zip/gzip compression only need the standard library.
+# Pick the extras for the features you use, or "all" for everything.
+dependencies = []
 
 [project.optional-dependencies]
-build = ["build", "twine"]
-dev = ["black", "bumpver", "isort", "mypy", "pytest", "flake8"]
+# CanonicalJsonMixin / CanonicalJsonMixinV2
+canonical = [
+    "pydantic>=2.12.5, <3.0.0",
+    "orjson>=3.11.5, <4.0.0",
+    "rfc8785>=0.1.4, <0.2.0",
+]
+# Secp256k1Algorithm (OpenSSL-backed secp256k1)
+crypto = [
+    "cryptography>=49.0.0, <50.0.0",
+]
+# Keccak256Algorithm and Secp256k1EvmAlgorithm (replaces the former web3 dependency)
+evm = [
+    "eth-account>=0.13.6, <1.0.0",
+    "eth-hash[pycryptodome]>=0.7.0, <1.0.0",
+]
+# ZstdAlgorithm and BrotliAlgorithm
+compression = [
+    "zstandard>=0.22.0, <1.0.0",
+    "Brotli>=1.1.0, <2.0.0",
+]
+# async_atomic_write
+async = [
+    "aiofiles>=25.1.0, <26.0.0",
+]
+# Perceptual image hashing
 images = [
     "ImageHash>=4.3.0, <5.0.0",
-    "Pillow>=13.0.0, <14.0.0"
+    "Pillow>=13.0.0, <14.0.0",
 ]
+all = [
+    "filedgr-pkg-utils[canonical,crypto,evm,compression,async,images]",
+]
+build = ["build", "twine"]
+dev = ["black", "bumpver", "isort", "mypy", "pytest", "flake8"]
 
 [project.urls]
 repository = "https://github.com/Filedgr/filedgr-pkg-utils"
