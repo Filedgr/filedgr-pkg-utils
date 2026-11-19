@@ -81,11 +81,18 @@ jobs:
         run: |
           bumpver update $LEVEL
 
+      # Tests gate the release, and the coverage badge is refreshed here (on the
+      # release commit) rather than by CI committing to pull-request branches.
+      - name: Run Tests & Generate Coverage Badge
+        run: |
+          pip install -r requirements-test.txt
+          make generate-badges
+
       - name: Commit and Push Version Bump
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: bump version [skip ci]"
-          file_pattern: "pyproject.toml src/filedgr_pkg_utils/__init__.py"
+          file_pattern: "pyproject.toml src/filedgr_pkg_utils/__init__.py coverage.svg"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "41898282+github-actions[bot]@users.noreply.github.com"
 
