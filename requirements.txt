@@ -1,6 +1,7 @@
 # Canoncilization
 pydantic>=2.13.4, <3.0.0
 orjson>=3.11.9, <4.0.0
+rfc8785>=0.1.4, <0.2.0
 
 # Crypto / Hashing
 cryptography>=49.0.0, <50.0.0

@@ -45,8 +45,9 @@ def test_canonical_json_sorting_and_whitespace():
 
 def test_canonical_json_datetime_serialization():
     """
-    Tests that datetimes go through the canonical formatter end-to-end
-    (UTC, millisecond precision, Z suffix).
+    Tests that datetimes are correctly dumped into the JSON representation.
+    Note: Pydantic V2's `model_dump(mode="json")` natively converts datetimes
+    to strings, but we test the end-to-end integration here.
     """
     # Create a datetime in UTC
     dt = datetime(2023, 10, 25, 12, 34, 56, 789000, tzinfo=timezone.utc)
@@ -54,7 +55,8 @@ def test_canonical_json_datetime_serialization():
 
     json_str = payload.canonical_json()
 
-    assert json_str == '{"timestamp":"2023-10-25T12:34:56.789Z"}'
+    # It should correctly represent the ISO format
+    assert '"timestamp":"2023-10-25T12:34:56.789000Z"' in json_str
 
 
 def test_default_datetime_formatter():
@@ -85,32 +87,100 @@ def test_default_type_error_on_unknown():
     with pytest.raises(TypeError):
         CanonicalJsonMixin._default(UnserializableObject())
 
-def test_canonical_json_non_utc_datetime_is_normalized():
-    dt = datetime(2024, 1, 1, 12, 0, 0, 123456, tzinfo=timezone(timedelta(hours=2)))
-    assert DatetimePayload(timestamp=dt).canonical_json() == '{"timestamp":"2024-01-01T10:00:00.123Z"}'
+# --- Frozen output: existing signatures depend on these exact bytes. ---
+# If one of these fails, the change breaks verification of already-signed
+# payloads. Put the new behaviour in CanonicalJsonMixinV2 instead.
+
+from decimal import Decimal
+from enum import Enum
+from typing import Dict, List, Optional, Set
+from uuid import UUID
+
+from pydantic import Field, computed_field, field_serializer
 
 
-def test_canonical_json_naive_datetime_treated_as_utc():
-    dt = datetime(2024, 1, 1, 12, 0, 0)
-    assert DatetimePayload(timestamp=dt).canonical_json() == '{"timestamp":"2024-01-01T12:00:00.000Z"}'
+class _Color(Enum):
+    RED = "red"
 
 
-def test_canonical_json_nested_and_non_native_types():
-    from decimal import Decimal
-    from typing import List
+class _Plain(CanonicalJsonMixin):
+    z: str
+    a: int
+    f: float
+    b: bool
+    n: Optional[str] = None
 
-    class Inner(CanonicalJsonMixin):
-        when: datetime
-        amount: Decimal
 
-    class Outer(CanonicalJsonMixin):
-        items: List[Inner]
-        b: str
+class _Nested(CanonicalJsonMixin):
+    items: List[Dict[str, int]]
+    inner: Optional[_Plain] = None
 
-    payload = Outer(
-        b="x",
-        items=[Inner(when=datetime(2024, 1, 1, tzinfo=timezone.utc), amount=Decimal("1.50"))],
-    )
-    assert payload.canonical_json() == (
-        '{"b":"x","items":[{"amount":"1.50","when":"2024-01-01T00:00:00.000Z"}]}'
-    )
+
+class _Types(CanonicalJsonMixin):
+    dec: Decimal
+    u: UUID
+    c: _Color
+    raw: bytes
+    d: object
+    s: Set[int]
+
+
+class _Aliased(CanonicalJsonMixin):
+    user_id: str = Field(alias="userId")
+
+
+class _JsonOnlySerializer(CanonicalJsonMixin):
+    v: int
+
+    @field_serializer("v", when_used="json")
+    def _ser(self, v):
+        return f"json-{v}"
+
+
+class _Computed(CanonicalJsonMixin):
+    x: int
+
+    @computed_field
+    @property
+    def doubled(self) -> int:
+        return self.x * 2
+
+
+class _OptDT(CanonicalJsonMixin):
+    ts: Optional[datetime] = None
+
+
+@pytest.mark.parametrize("payload, expected", [
+    (_Plain(z="é ü", a=1, f=1.5, b=True), '{"a":1,"b":true,"f":1.5,"n":null,"z":"é ü"}'),
+    (_Plain(z="", a=0, f=1.0, b=False), '{"a":0,"b":false,"f":1.0,"n":null,"z":""}'),
+    (
+        _Nested(items=[{"b": 2, "a": 1}], inner=_Plain(z="x", a=2, f=0.1, b=True)),
+        '{"inner":{"a":2,"b":true,"f":0.1,"n":null,"z":"x"},"items":[{"a":1,"b":2}]}',
+    ),
+    (
+        _Types(dec=Decimal("1.50"), u=UUID(int=1), c=_Color.RED, raw=b"abc", d="2024-01-02", s={3}),
+        '{"c":"red","d":"2024-01-02","dec":"1.50","raw":"abc","s":[3],"u":"00000000-0000-0000-0000-000000000001"}',
+    ),
+    (_Aliased(userId="u1"), '{"user_id":"u1"}'),
+    (_JsonOnlySerializer(v=2), '{"v":"json-2"}'),
+    (_Computed(x=2), '{"doubled":4,"x":2}'),
+    (_OptDT(), '{"ts":null}'),
+    (DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)), '{"timestamp":"2024-01-01T12:00:00Z"}'),
+    (
+        DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, 789000, tzinfo=timezone.utc)),
+        '{"timestamp":"2024-01-01T12:00:00.789000Z"}',
+    ),
+    (
+        DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, 123456, tzinfo=timezone.utc)),
+        '{"timestamp":"2024-01-01T12:00:00.123456Z"}',
+    ),
+    (
+        DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone(timedelta(hours=2)))),
+        '{"timestamp":"2024-01-01T12:00:00+02:00"}',
+    ),
+    (DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0)), '{"timestamp":"2024-01-01T12:00:00"}'),
+    (DatetimePayload(timestamp="2024-01-01T12:00:00.000Z"), '{"timestamp":"2024-01-01T12:00:00Z"}'),
+])
+def test_v1_output_is_frozen(payload, expected):
+    assert payload.canonical_json() == expected
+    assert payload.canonical_json_bytes() == expected.encode("utf-8")

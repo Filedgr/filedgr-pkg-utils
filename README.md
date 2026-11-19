@@ -70,26 +70,32 @@ utils.compress_file("data.json", "data.json.zst")
 
 ### 3. Canonical Serialization & Cryptography
 
-Generate deterministic, whitespace-free, and alphabetically sorted JSON payloads—perfect for creating verifiable hashes and blockchain signatures.
+Generate deterministic, whitespace-free, sorted-key JSON for verifiable hashes and signatures.
+
+**Use `CanonicalJsonMixinV2` for new payloads.** It implements [RFC 8785 (JSON Canonicalization Scheme)](https://www.rfc-editor.org/rfc/rfc8785), so a verifier in any language with a JCS library rebuilds the same bytes. On top of the RFC, datetimes are always UTC, ISO 8601, millisecond precision, with a `Z` suffix.
 
 ```python
-from filedgr_pkg_utils.canonicalization.canonical_json_mixin import CanonicalJsonMixin
 from datetime import datetime, timezone
+from filedgr_pkg_utils.canonicalization import CanonicalJsonMixinV2
 
-class BlockchainPayload(CanonicalJsonMixin):
+class BlockchainPayload(CanonicalJsonMixinV2):
     z_field: str
-    a_field: int
+    a_field: float
     timestamp: datetime
 
 payload = BlockchainPayload(
     z_field="last",
-    a_field=1,
-    timestamp=datetime(2023, 10, 25, 12, 30, 0, tzinfo=timezone.utc)
+    a_field=1.0,
+    timestamp=datetime(2023, 10, 25, 12, 30, 0, tzinfo=timezone.utc),
 )
 
-# Output is strictly deterministic: {"a_field":1,"timestamp":"2023-10-25T12:30:00.000Z","z_field":"last"}
-json_string = payload.canonical_json()
+payload.canonical_json()
+# {"a_field":1,"timestamp":"2023-10-25T12:30:00.000Z","z_field":"last"}
 ```
+
+V2 rejects (with `ValueError`) anything that can't be signed unambiguously: naive datetimes, `NaN`/infinity, and integers beyond ±2^53−1 (model large amounts such as wei as strings). Set `canonical_datetime_precision = "microseconds"` on a subclass to keep microseconds.
+
+**`CanonicalJsonMixin` (V1) is frozen** so existing signatures keep verifying. Its datetimes use pydantic's format (`2023-10-25T12:30:00Z`, offsets kept as given) and floats keep `.0`, so it is not RFC 8785 compliant. Don't switch an existing payload type from V1 to V2 without re-signing: the bytes differ for every payload containing a datetime or a whole-number float. Recording the format version inside new signed payloads makes later migrations safe.
 
 ### 4. Zero-Config Structured JSON Logging
 
