@@ -36,3 +36,44 @@ def test_hash_stream():
     direct_hash = hash_utils.hash_message(message=data)
 
     assert stream_hash == direct_hash
+
+
+# keccak256("") and keccak256("hello world") known-answer vectors (Ethereum keccak, not SHA3-256)
+KECCAK_EMPTY = "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+KECCAK_HELLO = "47173285a8d7341e5e972fc677286384f802f8ef42a5ec5f03bbfa254cb01fad"
+
+
+def test_keccak_known_vectors():
+    from filedgr_pkg_utils.cryptography.hashing.hash_algorithm import Keccak256Algorithm
+    hash_utils = HashUtils(algorithm=Keccak256Algorithm())
+    assert hash_utils.hash_message(b"") == "0x" + KECCAK_EMPTY
+    assert hash_utils.hash_message("hello world") == "0x" + KECCAK_HELLO
+
+
+def test_keccak_stream_matches_message():
+    from filedgr_pkg_utils.cryptography.hashing.hash_algorithm import Keccak256Algorithm
+    hash_utils = HashUtils(algorithm=Keccak256Algorithm())
+    data = b"hello world" * 1000
+    assert hash_utils.hash_stream(BytesIO(data), chunk_size=128) == hash_utils.hash_message(data)
+    assert hash_utils.hash_stream(BytesIO(b"hello world"), chunk_size=3) == "0x" + KECCAK_HELLO
+
+
+def test_keccak_file(tmp_path):
+    from filedgr_pkg_utils.cryptography.hashing.hash_algorithm import Keccak256Algorithm
+    path = tmp_path / "f.txt"
+    path.write_bytes(b"hello world")
+    hash_utils = HashUtils(algorithm=Keccak256Algorithm())
+    assert hash_utils.hash_file(str(path), chunk_size=4) == "0x" + KECCAK_HELLO
+
+
+def test_convert_hex_str_to_bytes32():
+    import pytest
+    from filedgr_pkg_utils.cryptography.hashing.conversion_utils import convert_hex_str_to_bytes32
+
+    expected = bytes.fromhex(KECCAK_HELLO)
+    assert convert_hex_str_to_bytes32("0x" + KECCAK_HELLO) == expected
+    assert convert_hex_str_to_bytes32(KECCAK_HELLO.upper()) == expected
+    with pytest.raises(ValueError):
+        convert_hex_str_to_bytes32("0xab")
+    with pytest.raises(ValueError):
+        convert_hex_str_to_bytes32("0x" + "zz" * 32)

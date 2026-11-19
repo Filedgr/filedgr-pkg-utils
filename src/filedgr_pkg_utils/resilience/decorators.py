@@ -1,8 +1,10 @@
 import time
 import asyncio
 import inspect
+import threading
+from collections import deque
 from functools import wraps
-from typing import Callable, Tuple, Type
+from typing import Callable, Deque, Tuple, Type
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 
@@ -51,54 +53,91 @@ def retry(
     return decorator
 
 
+class CircuitBreakerOpenError(RuntimeError):
+    """Raised when a call is rejected because the circuit breaker is open."""
+
+
+class RateLimitExceededError(PermissionError):
+    """Raised when a call is rejected by ``rate_limit``."""
+
+
 def circuit_breaker(failure_threshold: int = 5, recovery_timeout_seconds: float = 30.0):
-    """Trips after N failures, preventing execution until recovery timeout passes."""
+    """
+    Trips after N consecutive failures, rejecting calls with ``CircuitBreakerOpenError``
+    until ``recovery_timeout_seconds`` have passed.
+
+    After the timeout the breaker is HALF_OPEN and lets exactly one trial call
+    through (other callers are still rejected). If it succeeds the breaker closes;
+    if it fails the breaker opens again for another full timeout.
+
+    State is shared by all callers of the decorated function and is thread-safe.
+    """
 
     def decorator(func: Callable) -> Callable:
-        # Closure state
-        state = {"failures": 0, "last_failure_time": 0.0, "state": "CLOSED"}
+        lock = threading.Lock()
+        state = {"failures": 0, "opened_at": 0.0, "state": "CLOSED", "probe_in_flight": False}
 
-        def check_circuit():
-            if state["state"] == "OPEN":
-                if time.time() - state["last_failure_time"] > recovery_timeout_seconds:
+        def before_call() -> None:
+            with lock:
+                if state["state"] == "OPEN":
+                    if time.monotonic() - state["opened_at"] < recovery_timeout_seconds:
+                        raise CircuitBreakerOpenError("Circuit Breaker is OPEN.")
                     state["state"] = "HALF_OPEN"
-                else:
-                    raise RuntimeError("Circuit Breaker is OPEN.")
+                if state["state"] == "HALF_OPEN":
+                    if state["probe_in_flight"]:
+                        raise CircuitBreakerOpenError("Circuit Breaker is OPEN (trial call in progress).")
+                    state["probe_in_flight"] = True
 
-        def handle_success():
-            state["failures"] = 0
-            state["state"] = "CLOSED"
+        def on_success() -> None:
+            with lock:
+                state["failures"] = 0
+                state["state"] = "CLOSED"
+                state["probe_in_flight"] = False
 
-        def handle_failure():
-            state["failures"] += 1
-            state["last_failure_time"] = time.time()
-            if state["failures"] >= failure_threshold:
-                state["state"] = "OPEN"
+        def on_failure() -> None:
+            with lock:
+                state["failures"] += 1
+                if state["state"] == "HALF_OPEN" or state["failures"] >= failure_threshold:
+                    state["state"] = "OPEN"
+                    state["opened_at"] = time.monotonic()
+                state["probe_in_flight"] = False
+
+        def on_abort() -> None:
+            # Cancelled / interrupted (BaseException): not a failure of the
+            # dependency, but a trial slot must not stay taken forever.
+            with lock:
+                state["probe_in_flight"] = False
 
         if inspect.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
-                check_circuit()
+                before_call()
                 try:
                     result = await func(*args, **kwargs)
-                    handle_success()
-                    return result
-                except Exception as e:
-                    handle_failure()
-                    raise e
+                except Exception:
+                    on_failure()
+                    raise
+                except BaseException:
+                    on_abort()
+                    raise
+                on_success()
+                return result
 
             return async_wrapper
         else:
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
-                check_circuit()
+                before_call()
                 try:
                     result = func(*args, **kwargs)
-                    handle_success()
-                    return result
-                except Exception as e:
-                    handle_failure()
-                    raise e
+                except Exception:
+                    on_failure()
+                    raise
+                except BaseException:
+                    on_abort()
+                    raise
+                on_success()
+                return result
 
             return sync_wrapper
 
@@ -136,7 +175,13 @@ def fallback(fallback_function: Callable):
 
 
 def timeout(seconds: float):
-    """Cancels the execution if it takes longer than `seconds`."""
+    """
+    Raises ``TimeoutError`` if the call takes longer than `seconds`.
+
+    Async functions are cancelled. Sync functions run in a worker thread that
+    cannot be stopped: the caller gets the error on time, but the function
+    keeps running in the background until it returns.
+    """
 
     def decorator(func: Callable) -> Callable:
         if inspect.iscoroutinefunction(func):
@@ -148,12 +193,18 @@ def timeout(seconds: float):
         else:
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(func, *args, **kwargs)
-                    try:
-                        return future.result(timeout=seconds)
-                    except FuturesTimeoutError:
-                        raise TimeoutError(f"Function timed out after {seconds}s")
+                # Not using the executor as a context manager: its __exit__ waits for
+                # the worker thread, which would block until func finishes anyway.
+                # Python threads cannot be killed, so on timeout the call keeps
+                # running in the background; the caller just stops waiting for it.
+                executor = ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(func, *args, **kwargs)
+                try:
+                    return future.result(timeout=seconds)
+                except FuturesTimeoutError:
+                    raise TimeoutError(f"Function timed out after {seconds}s") from None
+                finally:
+                    executor.shutdown(wait=False)
 
             return sync_wrapper
 
@@ -161,18 +212,25 @@ def timeout(seconds: float):
 
 
 def rate_limit(calls: int = 5, period_seconds: float = 1.0):
-    """Limits the amount of times a function can be called in a given period."""
+    """
+    Allows at most ``calls`` calls per sliding window of ``period_seconds``;
+    further calls raise ``RateLimitExceededError`` (a ``PermissionError``).
+    The limit is shared by all callers of the decorated function and is thread-safe.
+    """
 
     def decorator(func: Callable) -> Callable:
-        timestamps = []
+        timestamps: Deque[float] = deque()
+        lock = threading.Lock()
 
         def check_rate_limit():
-            now = time.time()
-            # Remove timestamps older than the period
-            timestamps[:] = [t for t in timestamps if now - t < period_seconds]
-            if len(timestamps) >= calls:
-                raise PermissionError("Rate limit exceeded")
-            timestamps.append(now)
+            with lock:
+                now = time.monotonic()
+                # Remove timestamps older than the period
+                while timestamps and now - timestamps[0] >= period_seconds:
+                    timestamps.popleft()
+                if len(timestamps) >= calls:
+                    raise RateLimitExceededError("Rate limit exceeded")
+                timestamps.append(now)
 
         if inspect.iscoroutinefunction(func):
             @wraps(func)

@@ -32,7 +32,7 @@ Stop writing try/except blocks with `time.sleep()`. Stack our context-aware deco
 
 ```python
 from filedgr_pkg_utils.resilience.decorators import retry, circuit_breaker, fallback
-from filedgr_pkg_utils.hooks.post_action import post_action
+from filedgr_pkg_utils.hooks.decorators import post_action
 
 def audit_log(result, *args, **kwargs):
     print(f"Audit: Successfully fetched data {result}")
@@ -70,40 +70,52 @@ utils.compress_file("data.json", "data.json.zst")
 
 ### 3. Canonical Serialization & Cryptography
 
-Generate deterministic, whitespace-free, and alphabetically sorted JSON payloads—perfect for creating verifiable hashes and blockchain signatures.
+Generate deterministic, whitespace-free, sorted-key JSON for verifiable hashes and signatures.
+
+**Use `CanonicalJsonMixinV2` for new payloads.** It implements [RFC 8785 (JSON Canonicalization Scheme)](https://www.rfc-editor.org/rfc/rfc8785), so a verifier in any language with a JCS library rebuilds the same bytes. On top of the RFC, datetimes are always UTC, ISO 8601, millisecond precision, with a `Z` suffix.
 
 ```python
-from filedgr_pkg_utils.canonicalization.canonical_json_mixin import CanonicalJsonMixin
 from datetime import datetime, timezone
+from filedgr_pkg_utils.canonicalization import CanonicalJsonMixinV2
 
-class BlockchainPayload(CanonicalJsonMixin):
+class BlockchainPayload(CanonicalJsonMixinV2):
     z_field: str
-    a_field: int
+    a_field: float
     timestamp: datetime
 
 payload = BlockchainPayload(
     z_field="last",
-    a_field=1,
-    timestamp=datetime(2023, 10, 25, 12, 30, 0, tzinfo=timezone.utc)
+    a_field=1.0,
+    timestamp=datetime(2023, 10, 25, 12, 30, 0, tzinfo=timezone.utc),
 )
 
-# Output is strictly deterministic: {"a_field":1,"timestamp":"2023-10-25T12:30:00.000Z","z_field":"last"}
-json_string = payload.canonical_json()
+payload.canonical_json()
+# {"a_field":1,"timestamp":"2023-10-25T12:30:00.000Z","z_field":"last"}
 ```
+
+V2 rejects (with `ValueError`) anything that can't be signed unambiguously: naive datetimes, `NaN`/infinity, and integers beyond ±2^53−1 (model large amounts such as wei as strings). Set `canonical_datetime_precision = "microseconds"` on a subclass to keep microseconds.
+
+**`CanonicalJsonMixin` (V1) is frozen** so existing signatures keep verifying. Its datetimes use pydantic's format (`2023-10-25T12:30:00Z`, offsets kept as given) and floats keep `.0`, so it is not RFC 8785 compliant. Don't switch an existing payload type from V1 to V2 without re-signing: the bytes differ for every payload containing a datetime or a whole-number float. Recording the format version inside new signed payloads makes later migrations safe.
 
 ### 4. Zero-Config Structured JSON Logging
 
 Output logs as deterministic JSON for flawless Datadog or AWS CloudWatch ingestion. Fully integrates with Python's standard logging library.
 
 ```python
-from filedgr_pkg_utils.logging import LoggerFactory
+from filedgr_pkg_utils.fldgr_logging import LoggerFactory
 
-# Automatically reads FILEDGR_LOGGING_ENABLED env var
 logger = LoggerFactory.get_logger(__name__)
 
-logger.info("Processing file", extra={"file_id": "ABC-123", "correlation_id": "999"})
-# Output: {"timestamp": "2026-05-14T12:00:00.000Z", "level": "INFO", "logger": "__main__", "message": "Processing file", "file_id": "ABC-123", "correlation_id": "999"}
+logger.info("Processing file", extra={"file_id": "ABC-123", "access_token": "abc"})
+# Output: {"timestamp": "2026-05-14T12:00:00.000Z", "level": "INFO", "logger": "__main__", "message": "Processing file", "file_id": "ABC-123", "access_token": "*****"}
 ```
+
+| Parameter | Environment variable | Default | Effect |
+|---|---|---|---|
+| `sanitize_pii` | `FILEDGR_SANITIZE_LOGS` | `true` | Masks sensitive keys (tokens, passwords, API keys, ...) in `extra`. |
+| `propagate` | `FILEDGR_LOG_PROPAGATE` | unchanged (`true`) | Set to `false` where the platform adds its own root handler (e.g. AWS Lambda) so lines aren't logged twice. |
+
+An explicit parameter always overrides the environment variable.
 
 ### 5. Perceptual Image Hashing (Optional)
 

@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.12.5, <3.0.0",
     "cryptography>=49.0.0, <50.0.0",
     "orjson>=3.11.5, <4.0.0",
+    "rfc8785>=0.1.4, <0.2.0",
     "web3>=7.14.0, <8.0.0",
     "zstandard>=0.22.0, <1.0.0",
     "Brotli>=1.1.0, <2.0.0",
@@ -62,3 +63,4 @@ import_heading_firstparty = "Reader imports"
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
+asyncio_default_fixture_loop_scope = "function"

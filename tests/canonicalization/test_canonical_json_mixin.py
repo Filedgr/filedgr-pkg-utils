@@ -86,3 +86,101 @@ def test_default_type_error_on_unknown():
 
     with pytest.raises(TypeError):
         CanonicalJsonMixin._default(UnserializableObject())
+
+# --- Frozen output: existing signatures depend on these exact bytes. ---
+# If one of these fails, the change breaks verification of already-signed
+# payloads. Put the new behaviour in CanonicalJsonMixinV2 instead.
+
+from decimal import Decimal
+from enum import Enum
+from typing import Dict, List, Optional, Set
+from uuid import UUID
+
+from pydantic import Field, computed_field, field_serializer
+
+
+class _Color(Enum):
+    RED = "red"
+
+
+class _Plain(CanonicalJsonMixin):
+    z: str
+    a: int
+    f: float
+    b: bool
+    n: Optional[str] = None
+
+
+class _Nested(CanonicalJsonMixin):
+    items: List[Dict[str, int]]
+    inner: Optional[_Plain] = None
+
+
+class _Types(CanonicalJsonMixin):
+    dec: Decimal
+    u: UUID
+    c: _Color
+    raw: bytes
+    d: object
+    s: Set[int]
+
+
+class _Aliased(CanonicalJsonMixin):
+    user_id: str = Field(alias="userId")
+
+
+class _JsonOnlySerializer(CanonicalJsonMixin):
+    v: int
+
+    @field_serializer("v", when_used="json")
+    def _ser(self, v):
+        return f"json-{v}"
+
+
+class _Computed(CanonicalJsonMixin):
+    x: int
+
+    @computed_field
+    @property
+    def doubled(self) -> int:
+        return self.x * 2
+
+
+class _OptDT(CanonicalJsonMixin):
+    ts: Optional[datetime] = None
+
+
+@pytest.mark.parametrize("payload, expected", [
+    (_Plain(z="é ü", a=1, f=1.5, b=True), '{"a":1,"b":true,"f":1.5,"n":null,"z":"é ü"}'),
+    (_Plain(z="", a=0, f=1.0, b=False), '{"a":0,"b":false,"f":1.0,"n":null,"z":""}'),
+    (
+        _Nested(items=[{"b": 2, "a": 1}], inner=_Plain(z="x", a=2, f=0.1, b=True)),
+        '{"inner":{"a":2,"b":true,"f":0.1,"n":null,"z":"x"},"items":[{"a":1,"b":2}]}',
+    ),
+    (
+        _Types(dec=Decimal("1.50"), u=UUID(int=1), c=_Color.RED, raw=b"abc", d="2024-01-02", s={3}),
+        '{"c":"red","d":"2024-01-02","dec":"1.50","raw":"abc","s":[3],"u":"00000000-0000-0000-0000-000000000001"}',
+    ),
+    (_Aliased(userId="u1"), '{"user_id":"u1"}'),
+    (_JsonOnlySerializer(v=2), '{"v":"json-2"}'),
+    (_Computed(x=2), '{"doubled":4,"x":2}'),
+    (_OptDT(), '{"ts":null}'),
+    (DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)), '{"timestamp":"2024-01-01T12:00:00Z"}'),
+    (
+        DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, 789000, tzinfo=timezone.utc)),
+        '{"timestamp":"2024-01-01T12:00:00.789000Z"}',
+    ),
+    (
+        DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, 123456, tzinfo=timezone.utc)),
+        '{"timestamp":"2024-01-01T12:00:00.123456Z"}',
+    ),
+    (
+        DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone(timedelta(hours=2)))),
+        '{"timestamp":"2024-01-01T12:00:00+02:00"}',
+    ),
+    (DatetimePayload(timestamp=datetime(2024, 1, 1, 12, 0, 0)), '{"timestamp":"2024-01-01T12:00:00"}'),
+    (DatetimePayload(timestamp="2024-01-01T12:00:00.000Z"), '{"timestamp":"2024-01-01T12:00:00Z"}'),
+])
+def test_v1_output_is_frozen(payload, expected):
+    assert payload.canonical_json() == expected
+    assert payload.canonical_json_bytes() == expected.encode("utf-8")

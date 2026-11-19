@@ -105,3 +105,34 @@ def test_sanitize_primitives():
     assert sanitize_data("just a string") == "just a string"
     assert sanitize_data(12345) == 12345
     assert sanitize_data(None) is None
+
+def test_sanitize_default_catches_key_variants():
+    payload = {
+        "access_token": "a",
+        "refreshToken": "b",
+        "x-api-key": "c",
+        "apiKey": "d",
+        "DB_PASSWORD": "e",
+        "client.secret": "f",
+        "creditCard": "g",
+        "private-key": "h",
+        "SSN": "i",
+    }
+    result = sanitize_data(payload)
+    assert all(value == "*****" for value in result.values()), result
+
+
+def test_sanitize_default_avoids_short_word_false_positives():
+    payload = {"classname": "Foo", "jwt_issuer": "auth.example", "username": "alice"}
+    assert sanitize_data(payload) == payload
+
+
+def test_sanitize_custom_keys_stay_exact():
+    payload = {"favorite_color": "blue", "favorite_color_hex": "#00f", "password": "x"}
+    result = sanitize_data(payload, sensitive_keys=["favorite_color"])
+    assert result == {"favorite_color": "*****", "favorite_color_hex": "#00f", "password": "x"}
+
+
+def test_sanitize_nested_tuple_with_defaults():
+    result = sanitize_data({"items": ({"session_token": "x", "id": 1},)})
+    assert result == {"items": ({"session_token": "*****", "id": 1},)}

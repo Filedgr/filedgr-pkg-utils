@@ -7,6 +7,13 @@ from typing import Union
 from filedgr_pkg_utils.fldgr_logging.sanitizer_logger_adapter import SanitizerLoggerAdapter
 
 
+# Attributes every LogRecord carries; anything else on a record came from `extra=`.
+# Computed from a real record so new Python versions (e.g. 3.12's taskName) are covered.
+_RESERVED_RECORD_ATTRS = frozenset(
+    logging.LogRecord("", logging.INFO, "", 0, "", (), None).__dict__
+) | {"message", "asctime", "taskName"}
+
+
 class JsonFormatter(logging.Formatter):
     """
     Formats standard Python log records into a deterministic JSON structure.
@@ -14,7 +21,9 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_obj = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat() + "Z",
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z"),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -22,25 +31,28 @@ class JsonFormatter(logging.Formatter):
 
         # Inject any extra contextual data passed to the logger
         # e.g., logger.info("User logged in", extra={"user_id": "123"})
+        # Core fields above always win over an extra with the same name.
         for key, value in record.__dict__.items():
-            if key not in ["args", "asctime", "created", "exc_info", "exc_text", "filename",
-                           "funcName", "levelname", "levelno", "lineno", "module",
-                           "msecs", "message", "msg", "name", "pathname", "process",
-                           "processName", "relativeCreated", "stack_info", "thread", "threadName"]:
+            if key not in _RESERVED_RECORD_ATTRS and key not in log_obj:
                 log_obj[key] = value
 
         # Handle Exception traces safely
         if record.exc_info:
             log_obj["exception"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            log_obj["stack_info"] = self.formatStack(record.stack_info)
 
-        return json.dumps(log_obj)
+        # default=str: a non-JSON value in `extra` (datetime, UUID, custom object)
+        # must never make the log line disappear.
+        return json.dumps(log_obj, default=str)
 
 
 class LoggerFactory:
     @staticmethod
     def get_logger(
             name: str,
-            sanitize_pii: Union[bool, None] = None
+            sanitize_pii: Union[bool, None] = None,
+            propagate: Union[bool, None] = None
     ) -> Union[logging.Logger, logging.LoggerAdapter]:
         """
         Creates and configures a logger for the application.
@@ -48,6 +60,12 @@ class LoggerFactory:
         :param name: The name of the logger (usually __name__).
         :param sanitize_pii: If True, wraps the logger in a PII Sanitizer.
                              If None, defaults to the 'FILEDGR_SANITIZE_LOGS' env variable (default: True).
+        :param propagate: Whether records are also passed on to parent/root handlers.
+                          Set to False when the platform installs its own root handler
+                          (e.g. AWS Lambda) to avoid every line being logged twice.
+                          If None, uses the 'FILEDGR_LOG_PROPAGATE' env variable when set,
+                          otherwise leaves the logger's current setting (Python default: True).
+                          Note: with False, pytest's ``caplog`` no longer sees these records.
         """
         # 1. Determine if we should sanitize based on param or environment variable
         if sanitize_pii is None:
@@ -63,11 +81,16 @@ class LoggerFactory:
         # Configure handlers, formatters, and log levels if not already set up
         if not base_logger.handlers:
             handler = logging.StreamHandler()
-            # (Assuming you attach your custom JSON formatter here)
-            # formatter = JsonFormatter()
-            # handler.setFormatter(formatter)
+            handler.setFormatter(JsonFormatter())
             base_logger.addHandler(handler)
             base_logger.setLevel(logging.INFO)
+
+        if propagate is None:
+            env_propagate = os.getenv("FILEDGR_LOG_PROPAGATE")
+            if env_propagate is not None:
+                propagate = env_propagate.lower() in ("true", "1", "yes")
+        if propagate is not None:
+            base_logger.propagate = propagate
 
         # 3. Return the Secure Adapter or the raw Base Logger
         if should_sanitize:

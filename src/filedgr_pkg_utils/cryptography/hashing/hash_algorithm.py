@@ -92,10 +92,11 @@ class Keccak256Algorithm:
         return keccak(data)
 
     def hash_file(self, path: str, chunk_size: int = 1024 * 1024) -> bytes:
-        raise NotImplementedError("keccak of the web3 libraries does not expose a streaming API")
+        with open(path, "rb") as f:
+            return self.hash_stream(f, chunk_size=chunk_size)
 
     def hash_stream(self, stream: BinaryIO, chunk_size: int = 1024 * 1024) -> bytes:
-        h = hashlib.sha256()
+        h = keccak.new(b"")
         while chunk := stream.read(chunk_size):
             h.update(chunk)
         return h.digest()
