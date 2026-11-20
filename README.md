@@ -1,7 +1,7 @@
 # filedgr-pkg-utils
 
 ![Build Status](https://img.shields.io/github/actions/workflow/status/Filedgr/filedgr-pkg-utils/release.yml?branch=main)
-![Coverage](./coverage.svg)
+[![Release](https://img.shields.io/github/v/tag/Filedgr/filedgr-pkg-utils?label=release)](https://github.com/Filedgr/filedgr-pkg-utils/tags)
 ![Python Version](https://img.shields.io/badge/python-%3E%3D3.11-blue.svg)
 [![PyPI version](https://badge.fury.io/py/filedgr-pkg-utils.svg)](https://pypi.org/project/filedgr-pkg-utils/)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -159,3 +159,18 @@ To run the linter:
 ```bash
 make lint
 ```
+## 🚢 Releasing
+
+Releases are git tags; nothing is committed to `main` by CI. When a commit whose message contains a release keyword lands on a branch, the release workflow runs the tests, tags that commit `vX.Y.Z`, builds the package with that version and publishes it to PyPI.
+
+| Keyword | Result (from latest `v0.9.0`) | Allowed on |
+|---|---|---|
+| `#patch` | `0.9.1` | `main` |
+| `#minor` | `0.10.0` | `main` |
+| `#major` | `1.0.0` | `main` |
+| `#alpha` | `0.9.1a1`, then `0.9.1a2`, … | any release branch (`main`, `feature/*`, `bugfix/*`) |
+| `#final` | promotes the latest alpha, e.g. `0.9.1a2` → `0.9.1` | `main` |
+
+The workflow reads the message of the commit that lands on the branch. With "Create a merge commit", put the keyword in the **pull request title**; with "Squash and merge" or "Rebase and merge" it can also be in a commit message.
+
+If a release fails after tagging (e.g. at the PyPI upload), re-run the failed job: it reuses the existing tag instead of bumping again. `make version` shows the version a build of your checkout would get.
