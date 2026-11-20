@@ -1,8 +1,12 @@
+from filedgr_pkg_utils._optional import require
+
+require("cryptography", "crypto", "Secp256k1Algorithm")
+
 # Third party imports
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import (
+from cryptography.exceptions import InvalidSignature  # noqa: E402
+from cryptography.hazmat.primitives import hashes  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import ec  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric.utils import (  # noqa: E402
     decode_dss_signature,
     encode_dss_signature,
 )

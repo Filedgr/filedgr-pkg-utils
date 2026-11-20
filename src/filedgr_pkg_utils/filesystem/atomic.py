@@ -5,6 +5,8 @@ from contextlib import contextmanager, asynccontextmanager
 from pathlib import Path
 from typing import Generator, AsyncGenerator, Union, IO, Any
 
+from filedgr_pkg_utils._optional import missing_extra_error
+
 
 @contextmanager
 def atomic_write(
@@ -84,7 +86,7 @@ async def async_atomic_write(
     Prevents event loop blocking and partial file writes.
     """
     if not AIOFILES_AVAILABLE:
-        raise ImportError("The 'aiofiles' package is required to use async_atomic_write. Run: pip install aiofiles")
+        raise missing_extra_error("async", "async_atomic_write")
 
     path = Path(file_path)
 

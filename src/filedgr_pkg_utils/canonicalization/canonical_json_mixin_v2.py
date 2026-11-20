@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
 from typing import Any, ClassVar
 
-import rfc8785
-from pydantic import BaseModel
-from pydantic_core import to_jsonable_python
+from filedgr_pkg_utils._optional import require
+
+rfc8785 = require("rfc8785", "canonical", "CanonicalJsonMixinV2")
+require("pydantic", "canonical", "CanonicalJsonMixinV2")
+
+from pydantic import BaseModel  # noqa: E402
+from pydantic_core import to_jsonable_python  # noqa: E402
 
 
 def _utf16_key(value: str) -> bytes:

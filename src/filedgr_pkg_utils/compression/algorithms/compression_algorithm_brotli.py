@@ -1,4 +1,6 @@
-import brotli
+from filedgr_pkg_utils._optional import require
+
+brotli = require("brotli", "compression", "BrotliAlgorithm")
 
 
 class BrotliAlgorithm:

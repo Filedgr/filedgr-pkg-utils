@@ -1,19 +1,25 @@
-# Canoncilization
+# Mirrors the "all" extra in pyproject.toml (used by CI and local development).
+# Keep the two in sync.
+
+# canonical
 pydantic>=2.13.4, <3.0.0
 orjson>=3.11.9, <4.0.0
 rfc8785>=0.1.4, <0.2.0
 
-# Crypto / Hashing
+# crypto
 cryptography>=49.0.0, <50.0.0
-web3>=7.16.0, <8.0.0
 
-#Compression
+# evm
+eth-account>=0.13.6, <1.0.0
+eth-hash[pycryptodome]>=0.7.0, <1.0.0
+
+# compression
 zstandard>=0.22.0, <1.0.0
 Brotli>=1.1.0, <2.0.0
 
-# Phash
+# async
+aiofiles>=25.1.0, <26.0.0
+
+# images
 ImageHash>=4.3.0, <5.0.0
 Pillow>=13.0.0, <14.0.0
-
-# Async
-aiofiles>=25.1.0, <26.0.0

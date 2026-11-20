@@ -12,17 +12,28 @@ A comprehensive, production-ready Python utility toolkit for modern distributed 
 
 ## 📦 Installation
 
-Install the base package (extremely lightweight, ideal for AWS Lambda):
+The base package has **no third-party dependencies**. Add extras for the features you use:
 
 ```bash
-pip install filedgr-pkg-utils
+pip install filedgr-pkg-utils                       # base only
+pip install "filedgr-pkg-utils[evm,compression]"    # pick extras
+pip install "filedgr-pkg-utils[all]"                # everything
 ```
 
-Install with optional image perceptual hashing support (includes Pillow and ImageHash):
+| Extra | Installs | Enables |
+|---|---|---|
+| *(base)* | — | resilience & hook decorators, `ttl_cache`, PII sanitizer, JSON logging, atomic file writes, tar utils, EVM hex helpers, SHA-256/SHA-512/BLAKE2b hashing, HMAC signing, zip/gzip compression |
+| `canonical` | pydantic, orjson, rfc8785 | `CanonicalJsonMixin`, `CanonicalJsonMixinV2` |
+| `crypto` | cryptography | `Secp256k1Algorithm` |
+| `evm` | eth-account, eth-hash | `Keccak256Algorithm`, `Secp256k1EvmAlgorithm` |
+| `compression` | zstandard, Brotli | `ZstdAlgorithm`, `BrotliAlgorithm` |
+| `async` | aiofiles | `async_atomic_write` |
+| `images` | ImageHash, Pillow | perceptual image hashing |
+| `all` | all of the above | everything |
 
-```bash
-pip install "filedgr-pkg-utils[images]"
-```
+Using a feature without its extra raises an `ImportError` that names the extra to install.
+
+> **Upgrading from 0.8.x:** earlier versions installed pydantic, orjson, cryptography, web3, zstandard, Brotli and aiofiles by default. To keep the same features, depend on `filedgr-pkg-utils[all]`, or on just the extras you use. `web3` is no longer installed at all: the EVM features only need `eth-account` and `eth-hash`, so add `web3` to your own dependencies if your code imports it directly.
 
 ## 🚀 Prominent Features & Examples
 
