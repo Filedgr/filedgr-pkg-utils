@@ -2,7 +2,7 @@ PROJECT_NAME = filedgr_pkg_utils
 DATE    ?= $(shell date +%FT%T%z)
 MIN = 70
 
-.PHONY: bumpver package upload-package test-coverage generate-badges lint clean help
+.PHONY: version package upload-package test-coverage lint clean help
 
 # Helper to check if a CLI tool exists; if not, install its pip package.
 define require_cmd
@@ -15,9 +15,9 @@ define require_module
 endef
 
 ########## PACKAGING ##########
-bumpver: ## Bump the python package version, use PARAM=(--patch, --minor, --major) to define with step to use.
-	$(call require_cmd,bumpver,bumpver)
-	@bumpver update $(PARAM)
+version: ## Show the version a build of this checkout gets (releases are git tags vX.Y.Z, created by CI)
+	$(call require_module,setuptools_scm,setuptools-scm)
+	@python -m setuptools_scm
 
 package: ## Build the package
 	$(call require_module,build,build)
@@ -33,10 +33,6 @@ test-coverage: ## Runs the coverage tests for the python package
 	@python -c "import pytest_cov" 2>/dev/null || pip install -r requirements-test.txt
 	@pytest tests --cov=src/filedgr_pkg_utils --cov-fail-under=${MIN} --cov-report term-missing
 
-generate-badges: test-coverage ## Run tests and generate an SVG coverage badge
-	$(call require_cmd,coverage-badge,coverage-badge)
-	@coverage-badge -o coverage.svg -f
-	@echo "Coverage badge generated at coverage.svg"
 
 ########## UTILITIES ##########
 lint: ## Lint the codebase
@@ -49,7 +45,6 @@ clean: ## Cleans the workspace
 	rm -rf dist
 	rm -f .coverage
 	rm -rf */*.egg-info
-	rm -f coverage.svg
 
 help: ## Show the help
 	@echo ""
